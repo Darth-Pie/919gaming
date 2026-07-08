@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>919 Gaming</title>
+  <meta property="og:title" content="919 Gaming" />
+  <meta property="og:description" content="Community hub — find every 919 Gaming site." />
+  <meta property="og:url" content="https://919gaming.com/" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #0b1017;
+      color: #eaf2ff;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      letter-spacing: 0.03em;
+      text-align: center;
+      margin: 0 0 0.5rem;
+    }
+    .tagline {
+      text-align: center;
+      color: #8fa2b8;
+      margin: 0 0 3rem;
+    }
+    .sites {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .site-card {
+      display: block;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      background: #111826;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .site-card:hover {
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+    }
+    .site-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+    }
+    .site-desc {
+      margin: 0;
+      color: #8fa2b8;
+      font-size: 0.95rem;
+    }
+    .empty {
+      text-align: center;
+      color: #8fa2b8;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>919 Gaming</h1>
+    <p class="tagline">Every site, one place to find them.</p>
+    <ul class="sites" id="sites"></ul>
+  </main>
+  <script>
+    fetch('sites.json')
+      .then(r => r.json())
+      .then(sites => {
+        const list = document.getElementById('sites');
+        if (!sites.length) {
+          list.innerHTML = '<li class="empty">Nothing here yet.</li>';
+          return;
+        }
+        list.innerHTML = sites.map(site => `
+          <li>
+            <a class="site-card" href="${site.url}">
+              <p class="site-name">${site.name}</p>
+              <p class="site-desc">${site.description}</p>
+            </a>
+          </li>
+        `).join('');
+      });
+  </script>
+</body>
+</html>
