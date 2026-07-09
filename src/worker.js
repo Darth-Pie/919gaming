@@ -209,12 +209,12 @@ function adminLanding(session) {
   if (session.superAdmin || session.perms.create) {
     links.push(`<a class="admin-link" href="${ADMIN_PATH}/create">Add a Keeper</a>`);
   }
-  const logout = session.superAdmin ? `<a class="nav-link" href="${ADMIN_PATH}/logout">Log out of admin</a>` : '';
+  const signedInAs = session.superAdmin ? 'Super-Admin' : `Keeper "${escapeHtml(session.username)}"`;
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
-    <p class="sub">Choose an area</p>
+    <p class="sub">Signed in as ${signedInAs}</p>
     ${links.join('') || `<p class="empty">No admin capabilities on this account.</p>`}
-    ${logout}
+    <a class="nav-link" href="${ADMIN_PATH}/logout">Log out of admin</a>
   `);
 }
 
@@ -334,7 +334,10 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/logout') {
       const headers = new Headers({ Location: ADMIN_PATH, 'Cache-Control': 'no-store, private' });
+      // Clears both the super-admin session and the caller's regular site
+      // login, since either one alone can grant access to this admin area.
       headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=; Path=${ADMIN_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+      headers.append('Set-Cookie', `${COOKIE_NAME}=; Domain=919gaming.com; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
       return new Response(null, { status: 302, headers });
     }
 
