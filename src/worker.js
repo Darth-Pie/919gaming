@@ -1,29 +1,28 @@
-// "Keeper's Secrets" login gate. Serves a login form + a permission-gated
-// admin area for managing Keeper accounts, and passes every other request
-// through to the static site. On successful login, sets a signed cookie
-// scoped to the whole 919gaming.com domain so thebloom.919gaming.com can
-// verify it too.
+// "Keeper's Secrets" — Discord OAuth login gate for the admin area.
+// Identity and roles come entirely from Discord (OAuth2 Authorization Code
+// flow); nothing is stored locally except a lightweight directory of who
+// has logged in and their computed permissions (for the read-only Manage
+// Keepers page). Passes every other request through to the static site.
+// On successful login, sets a signed cookie scoped to the whole
+// 919gaming.com domain so thebloom.919gaming.com can verify it too.
 //
-// There is a single login (this same keeper_auth cookie) for both the site
-// and the admin area. One designated "God" account always has every admin
-// capability; any other Keeper's capabilities (create / reset / remove)
-// come from flags the God account sets on their AUTH_KV record.
+// A permanent "God" Discord account always has every admin capability.
+// One Discord role, if held, grants create + reset + remove together.
 
 const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
+const STATE_COOKIE_NAME = 'discord_oauth_state';
+const STATE_COOKIE_PATH = '/keepers-secrets';
 const ADMIN_PATH = '/keepers-secrets/admin';
-const GOD_USERNAME = 'pie'; // permanent super-admin account; always has every capability
-const PBKDF2_ITERATIONS = 5000; // kept low to stay within the free-plan CPU budget
+const CALLBACK_PATH = '/keepers-secrets/callback';
+const REDIRECT_URI = 'https://919gaming.com' + CALLBACK_PATH;
 
-function bufToHex(buf) {
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-function hexToBuf(hex) {
-  const buf = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < buf.length; i++) buf[i] = parseInt(hex.substr(i * 2, 2), 16);
-  return buf;
-}
+const DISCORD_CLIENT_ID = '1524888626629181542';
+const DISCORD_GUILD_ID = '1497395378495160493';
+const GOD_DISCORD_ID = '161833822307090432'; // permanent super-admin; always has every capability
+const TRUSTED_ROLE_ID = '1497395378931241056'; // grants create + reset + remove together
+
 function b64urlEncode(buf) {
   let bin = '';
   new Uint8Array(buf).forEach(b => { bin += String.fromCharCode(b); });
@@ -36,20 +35,6 @@ function b64urlToBuf(str) {
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
   return buf;
-}
-
-async function hashPassword(password, saltHex) {
-  const salt = saltHex ? hexToBuf(saltHex) : crypto.getRandomValues(new Uint8Array(16));
-  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, 256);
-  return { salt: bufToHex(salt), hash: bufToHex(bits) };
-}
-
-function timingSafeEqual(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return out === 0;
 }
 
 async function hmacKey(secret) {
@@ -85,36 +70,31 @@ function getCookie(request, name) {
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function normalizePerms(rec) {
-  const p = (rec && rec.perms) || {};
-  return { create: !!p.create, reset: !!p.reset, remove: !!p.remove };
-}
 
-// Resolves the caller's session from the single keeper_auth cookie. The
-// God account always has every capability; everyone else's capabilities
-// come from their own AUTH_KV record.
+// Resolves the caller's session from the single keeper_auth cookie. Perms
+// and God status are computed once at login (from Discord) and baked into
+// the signed token, so no Discord API calls happen on ordinary requests.
 async function getSession(request, env) {
   const authSecret = await env.AUTH_SECRET.get();
-  const userSession = await verifyToken(getCookie(request, COOKIE_NAME), authSecret);
-  if (!userSession || !userSession.u) {
-    return { loggedIn: false, username: null, isGod: false, perms: { create: false, reset: false, remove: false } };
+  const session = await verifyToken(getCookie(request, COOKIE_NAME), authSecret);
+  if (!session || !session.id) {
+    return { loggedIn: false, discordId: null, username: null, isGod: false, perms: { create: false, reset: false, remove: false } };
   }
-  const username = userSession.u;
-  if (username === GOD_USERNAME) {
-    return { loggedIn: true, username, isGod: true, perms: { create: true, reset: true, remove: true } };
-  }
-  const stored = await env.AUTH_KV.get('user:' + username);
-  const perms = stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false };
-  return { loggedIn: true, username, isGod: false, perms };
+  return {
+    loggedIn: true,
+    discordId: session.id,
+    username: session.username,
+    isGod: !!session.isGod,
+    perms: session.perms || { create: false, reset: false, remove: false }
+  };
 }
 
-async function listUsers(env) {
-  const { keys } = await env.AUTH_KV.list({ prefix: 'user:' });
+async function listKeepers(env) {
+  const { keys } = await env.AUTH_KV.list({ prefix: 'discordUser:' });
   const users = [];
   for (const k of keys) {
-    const username = k.name.slice('user:'.length);
     const stored = await env.AUTH_KV.get(k.name);
-    users.push({ username, perms: stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false } });
+    if (stored) users.push(JSON.parse(stored));
   }
   users.sort((a, b) => a.username.localeCompare(b.username));
   return users;
@@ -138,14 +118,6 @@ function page(title, bodyHtml, wide) {
   h1{ font-family:'Cinzel Decorative',serif; font-size:26px; margin:0 0 4px; text-align:center; color:var(--wax); }
   p.sub{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.22em; text-transform:uppercase;
     text-align:center; margin:0 0 26px; opacity:0.7; }
-  label{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.08em; display:block; margin:0 0 6px; }
-  input{ width:100%; font-family:'EB Garamond',serif; font-size:16px; padding:10px 12px; margin-bottom:16px;
-    border:1px solid rgba(58,42,26,0.35); border-radius:4px; background:rgba(255,255,255,0.5); color:var(--ink); }
-  button{ font-family:'Cinzel',serif; font-size:14px; letter-spacing:0.1em; text-transform:uppercase;
-    padding:12px; border:none; border-radius:4px; cursor:pointer; color:var(--gold-bright);
-    background:linear-gradient(180deg,#7c1f1f,#5c1414); box-shadow:0 6px 14px rgba(0,0,0,0.35); }
-  button.wide{ width:100%; }
-  button:hover{ filter:brightness(1.1); }
   .msg{ font-family:'Cinzel',serif; font-size:12px; text-align:center; margin:0 0 16px; color:var(--wax); }
   .ok{ color:#2f5c2a; }
   .admin-link{ display:block; text-align:center; font-family:'Cinzel',serif; font-size:14px; letter-spacing:0.08em;
@@ -156,33 +128,24 @@ function page(title, bodyHtml, wide) {
   .nav-link{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
     text-transform:uppercase; color:var(--ink); opacity:0.55; text-decoration:none; }
   .nav-link:hover{ opacity:0.9; }
-  .keeper-row{ padding:14px 0; border-bottom:1px dashed rgba(58,42,26,0.2); }
+  .keeper-row{ padding:12px 0; border-bottom:1px dashed rgba(58,42,26,0.2);
+    display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .keeper-row:last-child{ border-bottom:none; }
-  .keeper-name{ font-family:'Cinzel',serif; font-weight:600; font-size:15px; margin-bottom:8px; }
-  .inline-form{ display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
-  .inline-form input[type="password"]{ width:auto; flex:1; min-width:140px; margin-bottom:0; }
-  .inline-form button{ padding:9px 14px; font-size:11px; white-space:nowrap; }
-  .perms-form{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:8px 0 0;
-    padding-top:8px; border-top:1px solid rgba(58,42,26,0.12); }
-  .perms-form label{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.02em; text-transform:none;
-    display:flex; align-items:center; gap:5px; margin:0; }
-  .perms-form button{ padding:8px 14px; font-size:11px; }
+  .keeper-name{ font-family:'Cinzel',serif; font-weight:600; font-size:15px; }
+  .badges{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .badge{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:3px 8px; border-radius:10px; background:rgba(124,31,31,0.12); color:var(--wax); }
+  .badge.god{ background:linear-gradient(180deg,#7c1f1f,#5c1414); color:var(--gold-bright); }
   .empty{ font-family:'Cinzel',serif; font-size:12px; opacity:0.6; text-align:center; padding:12px 0; }
 </style></head><body><div class="panel">${bodyHtml}</div></body></html>`;
 }
 
-function loginPage(error) {
-  return page("Keeper's Secrets", `
-    <h1>Keeper's Secrets</h1>
-    <p class="sub">Enter to proceed</p>
-    ${error ? `<p class="msg">${escapeHtml(error)}</p>` : ''}
-    <form method="POST" action="/keepers-secrets">
-      <label for="u">Username</label>
-      <input id="u" name="username" autocomplete="username" required>
-      <label for="p">Password</label>
-      <input id="p" name="password" type="password" autocomplete="current-password" required>
-      <button type="submit" class="wide">Enter</button>
-    </form>`);
+function errorPage(title, message, backHref, backLabel) {
+  return page(title, `
+    <h1>${escapeHtml(title)}</h1>
+    <p class="msg">${escapeHtml(message)}</p>
+    <div class="nav-row"><a class="nav-link" href="${backHref}">${backLabel}</a></div>
+  `);
 }
 
 function adminNav() {
@@ -194,76 +157,37 @@ function adminNav() {
 
 function adminLanding(session) {
   const links = [];
-  if (session.isGod || session.perms.reset || session.perms.remove) {
-    links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">Manage Keepers</a>`);
+  if (session.isGod || session.perms.create || session.perms.reset || session.perms.remove) {
+    links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">View Keepers</a>`);
   }
-  if (session.isGod || session.perms.create) {
-    links.push(`<a class="admin-link" href="${ADMIN_PATH}/create">Add a Keeper</a>`);
-  }
-  const signedInAs = session.isGod ? `Keeper "${escapeHtml(session.username)}" (God)` : `Keeper "${escapeHtml(session.username)}"`;
+  const signedInAs = session.isGod ? `${escapeHtml(session.username)} (God)` : escapeHtml(session.username);
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Signed in as ${signedInAs}</p>
-    ${links.join('') || `<p class="empty">No admin capabilities on this account.</p>`}
+    ${links.join('') || `<p class="empty">No admin capabilities on this account. Ask the God account to grant the Trusted Keeper role on Discord.</p>`}
     ${adminNav()}
   `);
 }
 
-function createPage(msg, ok) {
-  return page("Keeper's Secrets — Add a Keeper", `
-    <h1>Add a Keeper</h1>
-    <p class="sub">Create or overwrite a login</p>
-    ${msg ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(msg)}</p>` : ''}
-    <form method="POST" action="${ADMIN_PATH}/create">
-      <label for="nu">Username</label>
-      <input id="nu" name="newUsername" required>
-      <label for="np">Password</label>
-      <input id="np" name="newPassword" type="password" required minlength="8">
-      <button type="submit" class="wide">Save Keeper</button>
-    </form>
-    <div class="nav-row">
-      <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
-      <a class="nav-link" href="${SITE_URL}">Back to Site</a>
-    </div>
-  `);
-}
-
-function keepersPage(users, session, msg, ok) {
+function keepersPage(users) {
   const rows = users.length
     ? users.map(u => {
-        const canReset = session.isGod || session.perms.reset;
-        const canRemove = session.isGod || session.perms.remove;
-        const resetForm = canReset ? `
-          <form method="POST" action="${ADMIN_PATH}/reset-password" class="inline-form">
-            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
-            <input type="password" name="newPassword" placeholder="New password" minlength="8" required>
-            <button type="submit">Reset Password</button>
-          </form>` : '';
-        const removeForm = canRemove ? `
-          <form method="POST" action="${ADMIN_PATH}/delete" class="inline-form"
-                onsubmit="return confirm('Remove Keeper &quot;${escapeHtml(u.username)}&quot;?');">
-            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
-            <button type="submit">Remove</button>
-          </form>` : '';
-        const permsForm = session.isGod ? `
-          <form method="POST" action="${ADMIN_PATH}/permissions" class="perms-form">
-            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
-            <label><input type="checkbox" name="canCreate" ${u.perms.create ? 'checked' : ''}> Create</label>
-            <label><input type="checkbox" name="canReset" ${u.perms.reset ? 'checked' : ''}> Reset</label>
-            <label><input type="checkbox" name="canRemove" ${u.perms.remove ? 'checked' : ''}> Remove</label>
-            <button type="submit">Save Permissions</button>
-          </form>` : '';
+        const badges = [];
+        if (u.isGod) badges.push(`<span class="badge god">God</span>`);
+        if (u.perms.create) badges.push(`<span class="badge">Create</span>`);
+        if (u.perms.reset) badges.push(`<span class="badge">Reset</span>`);
+        if (u.perms.remove) badges.push(`<span class="badge">Remove</span>`);
+        if (!badges.length) badges.push(`<span class="badge">Member</span>`);
         return `<div class="keeper-row">
-          <div class="keeper-name">${escapeHtml(u.username)}${u.username === GOD_USERNAME ? ' (God)' : ''}</div>
-          ${resetForm}${removeForm}${permsForm}
+          <div class="keeper-name">${escapeHtml(u.username)}</div>
+          <div class="badges">${badges.join('')}</div>
         </div>`;
       }).join('')
-    : `<p class="empty">No Keepers yet.</p>`;
+    : `<p class="empty">No one has logged in yet.</p>`;
 
-  return page("Keeper's Secrets — Manage Keepers", `
-    <h1>Manage Keepers</h1>
-    <p class="sub">${users.length} Keeper${users.length === 1 ? '' : 's'}</p>
-    ${msg ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(msg)}</p>` : ''}
+  return page("Keeper's Secrets — Keepers", `
+    <h1>Keepers</h1>
+    <p class="sub">${users.length} logged in — roles managed on Discord</p>
     ${rows}
     <div class="nav-row">
       <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
@@ -278,29 +202,84 @@ export default {
     const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
 
     if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
-      return new Response(loginPage(null), { headers: html });
+      const state = crypto.randomUUID();
+      const authorizeUrl = new URL('https://discord.com/api/oauth2/authorize');
+      authorizeUrl.searchParams.set('client_id', DISCORD_CLIENT_ID);
+      authorizeUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+      authorizeUrl.searchParams.set('response_type', 'code');
+      authorizeUrl.searchParams.set('scope', 'identify guilds.members.read');
+      authorizeUrl.searchParams.set('state', state);
+      const headers = new Headers({ Location: authorizeUrl.toString(), 'Cache-Control': 'no-store, private' });
+      headers.append('Set-Cookie', `${STATE_COOKIE_NAME}=${state}; Path=${STATE_COOKIE_PATH}; Max-Age=300; HttpOnly; Secure; SameSite=Lax`);
+      return new Response(null, { status: 302, headers });
     }
 
-    if (url.pathname === '/keepers-secrets' && request.method === 'POST') {
-      const form = await request.formData();
-      const username = (form.get('username') || '').toString().trim().toLowerCase();
-      const password = (form.get('password') || '').toString();
-      const stored = await env.AUTH_KV.get('user:' + username);
-      let ok = false;
-      if (stored) {
-        const { salt, hash } = JSON.parse(stored);
-        const attempt = await hashPassword(password, salt);
-        ok = timingSafeEqual(attempt.hash, hash);
+    if (url.pathname === CALLBACK_PATH && request.method === 'GET') {
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      const savedState = getCookie(request, STATE_COOKIE_NAME);
+      const clearState = `${STATE_COOKIE_NAME}=; Path=${STATE_COOKIE_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+
+      if (!code || !state || !savedState || state !== savedState) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Login Failed', 'That login link expired or was invalid. Please try again.', '/keepers-secrets', 'Try Again'), { status: 400, headers });
       }
-      if (!ok) {
-        return new Response(loginPage('Incorrect username or password.'), { status: 401, headers: html });
+
+      const clientSecret = await env.DISCORD_CLIENT_SECRET.get();
+      const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: DISCORD_CLIENT_ID,
+          client_secret: clientSecret,
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: REDIRECT_URI
+        })
+      });
+      if (!tokenRes.ok) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Login Failed', 'Discord rejected that login attempt.', '/keepers-secrets', 'Try Again'), { status: 401, headers });
       }
+      const { access_token } = await tokenRes.json();
+
+      const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      const user = await userRes.json();
+
+      const memberRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/${DISCORD_GUILD_ID}/member`, {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      if (!memberRes.ok) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
+      }
+      const member = await memberRes.json();
+      const roles = member.roles || [];
+
+      const isGod = user.id === GOD_DISCORD_ID;
+      const isTrusted = roles.includes(TRUSTED_ROLE_ID);
+      const perms = (isGod || isTrusted)
+        ? { create: true, reset: true, remove: true }
+        : { create: false, reset: false, remove: false };
+
+      await env.AUTH_KV.put('discordUser:' + user.id, JSON.stringify({
+        username: user.username,
+        isGod,
+        perms,
+        lastLogin: Date.now()
+      }));
+
       const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
       const authSecret = await env.AUTH_SECRET.get();
-      const token = await signToken({ u: username, exp }, authSecret);
-      const headers = new Headers(html);
+      const token = await signToken({ id: user.id, username: user.username, isGod, perms, exp }, authSecret);
+      const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
       headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
-      headers.set('Location', SITE_URL);
+      headers.append('Set-Cookie', clearState);
       return new Response(null, { status: 302, headers });
     }
 
@@ -318,107 +297,13 @@ export default {
       return new Response(null, { status: 302, headers });
     }
 
-    if (url.pathname === ADMIN_PATH + '/create' && request.method === 'GET') {
-      const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.create) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const msg = url.searchParams.get('msg');
-      const ok = url.searchParams.get('ok') === '1';
-      return new Response(createPage(msg, ok), { headers: html });
-    }
-
-    if (url.pathname === ADMIN_PATH + '/create' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.create) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const newUsername = (form.get('newUsername') || '').toString().trim().toLowerCase();
-      const newPassword = (form.get('newPassword') || '').toString();
-      if (!newUsername || newPassword.length < 8) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/create?ok=0&msg=' + encodeURIComponent('Username required; password must be at least 8 characters.'), 302);
-      }
-      // preserve an existing account's permissions if this overwrites it
-      const existing = await env.AUTH_KV.get('user:' + newUsername);
-      const perms = existing ? normalizePerms(JSON.parse(existing)) : { create: false, reset: false, remove: false };
-      const { salt, hash } = await hashPassword(newPassword);
-      await env.AUTH_KV.put('user:' + newUsername, JSON.stringify({ salt, hash, perms }));
-      return Response.redirect(url.origin + ADMIN_PATH + '/create?ok=1&msg=' + encodeURIComponent(`Keeper "${newUsername}" saved.`), 302);
-    }
-
     if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
       const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.reset && !session.perms.remove) {
+      if (!session.isGod && !session.perms.create && !session.perms.reset && !session.perms.remove) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
-      const users = await listUsers(env);
-      const msg = url.searchParams.get('msg');
-      const ok = url.searchParams.get('ok') === '1';
-      return new Response(keepersPage(users, session, msg, ok), { headers: html });
-    }
-
-    if (url.pathname === ADMIN_PATH + '/reset-password' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.reset) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const username = (form.get('username') || '').toString().trim().toLowerCase();
-      const newPassword = (form.get('newPassword') || '').toString();
-      if (newPassword.length < 8) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Password must be at least 8 characters.'), 302);
-      }
-      const key = 'user:' + username;
-      const stored = await env.AUTH_KV.get(key);
-      if (!stored) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Unknown Keeper.'), 302);
-      }
-      const rec = JSON.parse(stored);
-      const { salt, hash } = await hashPassword(newPassword);
-      rec.salt = salt;
-      rec.hash = hash;
-      await env.AUTH_KV.put(key, JSON.stringify(rec));
-      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Password reset for "${username}".`), 302);
-    }
-
-    if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const username = (form.get('username') || '').toString().trim().toLowerCase();
-      if (username === GOD_USERNAME) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('The God account always has every permission.'), 302);
-      }
-      const key = 'user:' + username;
-      const stored = await env.AUTH_KV.get(key);
-      if (!stored) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Unknown Keeper.'), 302);
-      }
-      const rec = JSON.parse(stored);
-      rec.perms = {
-        create: form.has('canCreate'),
-        reset: form.has('canReset'),
-        remove: form.has('canRemove')
-      };
-      await env.AUTH_KV.put(key, JSON.stringify(rec));
-      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Permissions updated for "${username}".`), 302);
-    }
-
-    if (url.pathname === ADMIN_PATH + '/delete' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.remove) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const username = (form.get('username') || '').toString().trim().toLowerCase();
-      if (username === GOD_USERNAME) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('The God account cannot be removed.'), 302);
-      }
-      await env.AUTH_KV.delete('user:' + username);
-      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Keeper "${username}" removed.`), 302);
+      const users = await listKeepers(env);
+      return new Response(keepersPage(users), { headers: html });
     }
 
     return env.ASSETS.fetch(request);

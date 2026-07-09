@@ -24,6 +24,11 @@
       "binding": "AUTH_SECRET",
       "store_id": "66787472c7c24607b228c9cef06da89d",
       "secret_name": "keeper-auth-secret"
+    },
+    {
+      "binding": "DISCORD_CLIENT_SECRET",
+      "store_id": "66787472c7c24607b228c9cef06da89d",
+      "secret_name": "discord-client-secret"
     }
   ]
 }
