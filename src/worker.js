@@ -278,7 +278,7 @@ function keepersPage(users, session, msg, ok) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const html = { 'content-type': 'text/html;charset=UTF-8' };
+    const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
 
     if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
       return new Response(loginPage(null), { headers: html });
@@ -333,7 +333,7 @@ export default {
     }
 
     if (url.pathname === ADMIN_PATH + '/logout') {
-      const headers = new Headers({ Location: ADMIN_PATH });
+      const headers = new Headers({ Location: ADMIN_PATH, 'Cache-Control': 'no-store, private' });
       headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=; Path=${ADMIN_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
       return new Response(null, { status: 302, headers });
     }
