@@ -222,6 +222,10 @@ export default {
     const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
 
     if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
+      const existingSession = await getSession(request, env);
+      if (existingSession.loggedIn) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
       const state = crypto.randomUUID();
       const authorizeUrl = new URL('https://discord.com/api/oauth2/authorize');
       authorizeUrl.searchParams.set('client_id', DISCORD_CLIENT_ID);
