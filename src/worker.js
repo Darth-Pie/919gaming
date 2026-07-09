@@ -168,7 +168,7 @@ function adminDashboard(usernames, message, ok) {
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Manage Keepers</p>
-    ${message ? `<p class="msg${ok ? ' ok' : ''}">${message}</p>` : ''}
+    ${message ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(message)}</p>` : ''}
 
     <h2 class="section">Existing Keepers</h2>
     <table>${rows}</table>
@@ -235,7 +235,9 @@ export default {
         return new Response(adminKeyPage(null), { headers: html });
       }
       const usernames = await listUsernames(env);
-      return new Response(adminDashboard(usernames, null), { headers: html });
+      const msg = url.searchParams.get('msg');
+      const ok = url.searchParams.get('ok') === '1';
+      return new Response(adminDashboard(usernames, msg, ok), { headers: html });
     }
 
     if (url.pathname === ADMIN_PATH + '/login' && request.method === 'POST') {
@@ -261,14 +263,12 @@ export default {
       const form = await request.formData();
       const newUsername = (form.get('newUsername') || '').toString().trim().toLowerCase();
       const newPassword = (form.get('newPassword') || '').toString();
-      const usernames = await listUsernames(env);
       if (!newUsername || newPassword.length < 8) {
-        return new Response(adminDashboard(usernames, 'Username required; password must be at least 8 characters.', false), { status: 400, headers: html });
+        return Response.redirect(url.origin + ADMIN_PATH + '?ok=0&msg=' + encodeURIComponent('Username required; password must be at least 8 characters.'), 302);
       }
       const { salt, hash } = await hashPassword(newPassword);
       await env.AUTH_KV.put('user:' + newUsername, JSON.stringify({ salt, hash }));
-      const updated = await listUsernames(env);
-      return new Response(adminDashboard(updated, `Keeper "${newUsername}" saved.`, true), { headers: html });
+      return Response.redirect(url.origin + ADMIN_PATH + '?ok=1&msg=' + encodeURIComponent(`Keeper "${newUsername}" saved.`), 302);
     }
 
     if (url.pathname === ADMIN_PATH + '/delete' && request.method === 'POST') {
@@ -278,8 +278,7 @@ export default {
       const form = await request.formData();
       const username = (form.get('username') || '').toString().trim().toLowerCase();
       await env.AUTH_KV.delete('user:' + username);
-      const updated = await listUsernames(env);
-      return new Response(adminDashboard(updated, `Keeper "${username}" removed.`, true), { headers: html });
+      return Response.redirect(url.origin + ADMIN_PATH + '?ok=1&msg=' + encodeURIComponent(`Keeper "${username}" removed.`), 302);
     }
 
     if (url.pathname === ADMIN_PATH + '/logout') {
