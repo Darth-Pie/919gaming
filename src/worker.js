@@ -9,7 +9,6 @@
 // capability; any other Keeper's capabilities (create / reset / remove)
 // come from flags the God account sets on their AUTH_KV record.
 
-const PROTECTED_URL = 'https://thebloom.919gaming.com/keeper.html';
 const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
@@ -301,7 +300,7 @@ export default {
       const token = await signToken({ u: username, exp }, authSecret);
       const headers = new Headers(html);
       headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
-      headers.set('Location', PROTECTED_URL);
+      headers.set('Location', SITE_URL);
       return new Response(null, { status: 302, headers });
     }
 
