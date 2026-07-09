@@ -138,7 +138,8 @@ export default {
         return new Response(loginPage('Incorrect username or password.'), { status: 401, headers: html });
       }
       const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
-      const token = await signToken({ u: username, exp }, env.AUTH_SECRET);
+      const authSecret = await env.AUTH_SECRET.get();
+      const token = await signToken({ u: username, exp }, authSecret);
       const headers = new Headers(html);
       headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
       headers.set('Location', PROTECTED_URL);
@@ -154,7 +155,8 @@ export default {
       const adminKey = (form.get('adminKey') || '').toString();
       const newUsername = (form.get('newUsername') || '').toString().trim().toLowerCase();
       const newPassword = (form.get('newPassword') || '').toString();
-      if (!env.ADMIN_PASSWORD || !timingSafeEqual(adminKey, env.ADMIN_PASSWORD)) {
+      const adminPassword = await env.ADMIN_PASSWORD.get();
+      if (!adminPassword || !timingSafeEqual(adminKey, adminPassword)) {
         return new Response(adminPage('Incorrect admin key.', false), { status: 401, headers: html });
       }
       if (!newUsername || newPassword.length < 8) {
