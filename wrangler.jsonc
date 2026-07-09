@@ -1,14 +1,34 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "919gaming",
+  "main": "src/worker.js",
   "compatibility_date": "2026-07-08",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "AUTH_KV",
+      "id": "66e9bf19702d43a587b7a2508e9901c2"
+    }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "AUTH_SECRET",
+      "store_id": "66787472c7c24607b228c9cef06da89d",
+      "secret_name": "keeper-auth-secret"
+    },
+    {
+      "binding": "ADMIN_PASSWORD",
+      "store_id": "66787472c7c24607b228c9cef06da89d",
+      "secret_name": "keeper-auth-password"
+    }
   ]
 }

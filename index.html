@@ -164,6 +164,32 @@
     font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.18em;
     color:rgba(236,216,164,0.32); z-index:1; }
 
+  /* ---- keeper's secrets link + login modal ---- */
+  .keeper-link{ position:fixed; top:18px; right:22px; z-index:5;
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--gold); opacity:0.75; padding:6px 10px; border:1px solid rgba(201,169,106,0.35);
+    border-radius:3px; background:rgba(13,9,6,0.35); transition:opacity 0.2s ease, border-color 0.2s ease; }
+  .keeper-link:hover{ color:var(--gold-bright); opacity:1; border-color:rgba(201,169,106,0.7); }
+  .keeper-overlay{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    padding:24px; background:radial-gradient(ellipse at 50% 40%, rgba(20,14,9,0.86), rgba(6,4,2,0.95)); }
+  .keeper-overlay.show{ display:flex; animation:backdropIn 0.3s ease both; }
+  .keeper-modal{ position:relative; width:min(360px,92vw); background:linear-gradient(180deg,var(--parchment),var(--parchment-dk));
+    color:var(--ink); border-radius:8px; padding:34px 30px; box-shadow:0 30px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.2);
+    animation:spreadIn 0.35s ease both; }
+  .keeper-modal h2{ font-family:'Cinzel Decorative',serif; font-size:24px; margin:0 0 4px; text-align:center; color:var(--wax); }
+  .keeper-modal .keeper-sub{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.22em; text-transform:uppercase;
+    text-align:center; margin:0 0 24px; opacity:0.7; }
+  .keeper-modal label{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.08em; display:block; margin:0 0 6px; }
+  .keeper-modal input{ width:100%; font-family:'EB Garamond',serif; font-size:16px; padding:10px 12px; margin-bottom:16px;
+    border:1px solid rgba(58,42,26,0.35); border-radius:4px; background:rgba(255,255,255,0.5); color:var(--ink); }
+  .keeper-modal button[type="submit"]{ width:100%; font-family:'Cinzel',serif; font-size:14px; letter-spacing:0.1em;
+    text-transform:uppercase; padding:12px; border:none; border-radius:4px; cursor:pointer; color:var(--gold-bright);
+    background:linear-gradient(180deg,var(--wax),var(--wax-dk)); box-shadow:0 6px 14px rgba(0,0,0,0.35); }
+  .keeper-modal button[type="submit"]:hover{ filter:brightness(1.1); }
+  .keeper-close{ position:absolute; top:-14px; right:-6px; width:40px; height:40px; border-radius:50%; border:none;
+    cursor:pointer; font-size:20px; font-family:'Cinzel',serif; color:var(--gold-bright);
+    background:radial-gradient(circle at 35% 30%,#9a2b2b,var(--wax-dk)); box-shadow:0 6px 16px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4); }
+
   /* ---- opened book overlay ---- */
   .overlay{ position:fixed; inset:0; z-index:50; display:none;
     align-items:center; justify-content:center; padding:24px;
@@ -234,6 +260,8 @@
   <div class="motes" id="motes"></div>
   <div class="wall"></div>
 
+  <a href="/keepers-secrets" class="keeper-link" id="keeperLink">Keeper's Secrets</a>
+
   <div class="stage">
     <div class="masthead">
       <div class="rule-row">
@@ -261,6 +289,22 @@
     <div class="book" id="book">
       <button class="close" id="close" aria-label="Close">&times;</button>
       <div class="spread" id="spread"></div>
+    </div>
+  </div>
+
+  <!-- keeper's secrets login modal -->
+  <div class="keeper-overlay" id="keeperOverlay">
+    <div class="keeper-modal">
+      <button class="keeper-close" id="keeperClose" aria-label="Close">&times;</button>
+      <h2>Keeper's Secrets</h2>
+      <p class="keeper-sub">Enter to proceed</p>
+      <form method="POST" action="/keepers-secrets">
+        <label for="keeperUser">Username</label>
+        <input id="keeperUser" name="username" autocomplete="username" required>
+        <label for="keeperPass">Password</label>
+        <input id="keeperPass" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
     </div>
   </div>
 
@@ -412,6 +456,16 @@
   document.getElementById('close').addEventListener('click', closeBook);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeBook(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBook(); });
+
+  /* ---- keeper's secrets login modal ---- */
+  const keeperLink = document.getElementById('keeperLink');
+  const keeperOverlay = document.getElementById('keeperOverlay');
+  function openKeeper(){ keeperOverlay.classList.add('show'); }
+  function closeKeeper(){ keeperOverlay.classList.remove('show'); }
+  keeperLink.addEventListener('click', e => { e.preventDefault(); openKeeper(); });
+  document.getElementById('keeperClose').addEventListener('click', closeKeeper);
+  keeperOverlay.addEventListener('click', e => { if (e.target === keeperOverlay) closeKeeper(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeKeeper(); });
 
   /* ---- ambient dust motes ---- */
   const motes = document.getElementById('motes');
