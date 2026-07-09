@@ -164,13 +164,15 @@
     font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.18em;
     color:rgba(236,216,164,0.32); z-index:1; }
 
-  /* ---- keeper's secrets link + login modal ---- */
-  .keeper-link{ position:fixed; top:18px; right:22px; z-index:5;
-    font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.16em; text-transform:uppercase;
-    color:var(--gold); opacity:0.75; padding:6px 10px; border:1px solid rgba(201,169,106,0.35);
-    border-radius:3px; background:rgba(13,9,6,0.35); transition:opacity 0.2s ease, border-color 0.2s ease; }
-  .keeper-link:hover{ color:var(--gold-bright); opacity:1; border-color:rgba(201,169,106,0.7); }
-  .content-link{ top:54px; }
+  /* ---- top-right nav links ---- */
+  .top-nav{ position:fixed; top:24px; right:24px; z-index:5;
+    display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
+  .top-nav a{ display:flex; align-items:center; gap:8px; white-space:nowrap;
+    font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.22em; text-transform:uppercase;
+    color:var(--gold); opacity:0.8; text-decoration:none;
+    transition:opacity 0.2s ease, color 0.2s ease; }
+  .top-nav a:hover{ color:var(--gold-bright); opacity:1; }
+  .top-nav a svg{ flex-shrink:0; width:13px; height:13px; }
 
   /* ---- opened book overlay ---- */
   .overlay{ position:fixed; inset:0; z-index:50; display:none;
@@ -242,8 +244,10 @@
   <div class="motes" id="motes"></div>
   <div class="wall"></div>
 
-  <a href="/keepers-secrets" class="keeper-link">Keeper's Secrets</a>
-  <a href="https://thebloom.919gaming.com/keeper.html" class="keeper-link content-link" id="contentLink" style="display:none">The Blooming</a>
+  <div class="top-nav">
+    <a href="/keepers-secrets"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>Keeper's Secrets</a>
+    <a href="https://thebloom.919gaming.com/keeper.html" id="contentLink" style="display:none"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>The Blooming</a>
+  </div>
 
   <div class="stage">
     <div class="masthead">
