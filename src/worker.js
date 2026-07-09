@@ -4,18 +4,17 @@
 // scoped to the whole 919gaming.com domain so thebloom.919gaming.com can
 // verify it too.
 //
-// Two kinds of admin session:
-//  - super-admin: unlocked with the shared ADMIN_PASSWORD key, always has
-//    every capability (keeper_admin cookie, path-scoped to the admin area).
-//  - a regular Keeper (keeper_auth cookie) whose account has one or more
-//    capability flags (create / reset / remove) granted by the super-admin.
+// There is a single login (this same keeper_auth cookie) for both the site
+// and the admin area. One designated "God" account always has every admin
+// capability; any other Keeper's capabilities (create / reset / remove)
+// come from flags the God account sets on their AUTH_KV record.
 
 const PROTECTED_URL = 'https://thebloom.919gaming.com/keeper.html';
+const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
-const ADMIN_COOKIE_NAME = 'keeper_admin';
-const ADMIN_COOKIE_MAX_AGE = 60 * 60; // 1 hour
 const ADMIN_PATH = '/keepers-secrets/admin';
+const GOD_USERNAME = 'pie'; // permanent super-admin account; always has every capability
 const PBKDF2_ITERATIONS = 5000; // kept low to stay within the free-plan CPU budget
 
 function bufToHex(buf) {
@@ -92,25 +91,22 @@ function normalizePerms(rec) {
   return { create: !!p.create, reset: !!p.reset, remove: !!p.remove };
 }
 
-// Resolves the caller's admin session: super-admin (shared key) always has
-// every capability; a regular Keeper's capabilities come from their own
-// AUTH_KV record.
+// Resolves the caller's session from the single keeper_auth cookie. The
+// God account always has every capability; everyone else's capabilities
+// come from their own AUTH_KV record.
 async function getSession(request, env) {
   const authSecret = await env.AUTH_SECRET.get();
-
-  const adminSession = await verifyToken(getCookie(request, ADMIN_COOKIE_NAME), authSecret);
-  if (adminSession && adminSession.admin) {
-    return { superAdmin: true, username: null, perms: { create: true, reset: true, remove: true } };
-  }
-
   const userSession = await verifyToken(getCookie(request, COOKIE_NAME), authSecret);
-  if (userSession && userSession.u) {
-    const stored = await env.AUTH_KV.get('user:' + userSession.u);
-    const perms = stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false };
-    return { superAdmin: false, username: userSession.u, perms };
+  if (!userSession || !userSession.u) {
+    return { loggedIn: false, username: null, isGod: false, perms: { create: false, reset: false, remove: false } };
   }
-
-  return { superAdmin: false, username: null, perms: { create: false, reset: false, remove: false } };
+  const username = userSession.u;
+  if (username === GOD_USERNAME) {
+    return { loggedIn: true, username, isGod: true, perms: { create: true, reset: true, remove: true } };
+  }
+  const stored = await env.AUTH_KV.get('user:' + username);
+  const perms = stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false };
+  return { loggedIn: true, username, isGod: false, perms };
 }
 
 async function listUsers(env) {
@@ -157,8 +153,9 @@ function page(title, bodyHtml, wide) {
     text-transform:uppercase; color:var(--gold-bright); text-decoration:none; padding:14px; border-radius:4px;
     margin-bottom:12px; background:linear-gradient(180deg,#7c1f1f,#5c1414); box-shadow:0 6px 14px rgba(0,0,0,0.35); }
   .admin-link:hover{ filter:brightness(1.1); }
-  .nav-link{ display:block; text-align:center; font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
-    text-transform:uppercase; color:var(--ink); opacity:0.55; margin-top:22px; text-decoration:none; }
+  .nav-row{ display:flex; justify-content:center; gap:18px; margin-top:22px; }
+  .nav-link{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--ink); opacity:0.55; text-decoration:none; }
   .nav-link:hover{ opacity:0.9; }
   .keeper-row{ padding:14px 0; border-bottom:1px dashed rgba(58,42,26,0.2); }
   .keeper-row:last-child{ border-bottom:none; }
@@ -189,32 +186,27 @@ function loginPage(error) {
     </form>`);
 }
 
-function adminKeyPage(error) {
-  return page("Keeper's Secrets — Admin", `
-    <h1>Admin</h1>
-    <p class="sub">Enter the admin key</p>
-    ${error ? `<p class="msg">${escapeHtml(error)}</p>` : ''}
-    <form method="POST" action="${ADMIN_PATH}/login">
-      <label for="k">Admin Key</label>
-      <input id="k" name="adminKey" type="password" required>
-      <button type="submit" class="wide">Unlock</button>
-    </form>`);
+function adminNav() {
+  return `<div class="nav-row">
+    <a class="nav-link" href="${SITE_URL}">Back to Site</a>
+    <a class="nav-link" href="${ADMIN_PATH}/logout">Log out</a>
+  </div>`;
 }
 
 function adminLanding(session) {
   const links = [];
-  if (session.superAdmin || session.perms.reset || session.perms.remove) {
+  if (session.isGod || session.perms.reset || session.perms.remove) {
     links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">Manage Keepers</a>`);
   }
-  if (session.superAdmin || session.perms.create) {
+  if (session.isGod || session.perms.create) {
     links.push(`<a class="admin-link" href="${ADMIN_PATH}/create">Add a Keeper</a>`);
   }
-  const signedInAs = session.superAdmin ? 'Super-Admin' : `Keeper "${escapeHtml(session.username)}"`;
+  const signedInAs = session.isGod ? `Keeper "${escapeHtml(session.username)}" (God)` : `Keeper "${escapeHtml(session.username)}"`;
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Signed in as ${signedInAs}</p>
     ${links.join('') || `<p class="empty">No admin capabilities on this account.</p>`}
-    <a class="nav-link" href="${ADMIN_PATH}/logout">Log out of admin</a>
+    ${adminNav()}
   `);
 }
 
@@ -230,15 +222,18 @@ function createPage(msg, ok) {
       <input id="np" name="newPassword" type="password" required minlength="8">
       <button type="submit" class="wide">Save Keeper</button>
     </form>
-    <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+    <div class="nav-row">
+      <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+      <a class="nav-link" href="${SITE_URL}">Back to Site</a>
+    </div>
   `);
 }
 
 function keepersPage(users, session, msg, ok) {
   const rows = users.length
     ? users.map(u => {
-        const canReset = session.superAdmin || session.perms.reset;
-        const canRemove = session.superAdmin || session.perms.remove;
+        const canReset = session.isGod || session.perms.reset;
+        const canRemove = session.isGod || session.perms.remove;
         const resetForm = canReset ? `
           <form method="POST" action="${ADMIN_PATH}/reset-password" class="inline-form">
             <input type="hidden" name="username" value="${escapeHtml(u.username)}">
@@ -251,7 +246,7 @@ function keepersPage(users, session, msg, ok) {
             <input type="hidden" name="username" value="${escapeHtml(u.username)}">
             <button type="submit">Remove</button>
           </form>` : '';
-        const permsForm = session.superAdmin ? `
+        const permsForm = session.isGod ? `
           <form method="POST" action="${ADMIN_PATH}/permissions" class="perms-form">
             <input type="hidden" name="username" value="${escapeHtml(u.username)}">
             <label><input type="checkbox" name="canCreate" ${u.perms.create ? 'checked' : ''}> Create</label>
@@ -260,7 +255,7 @@ function keepersPage(users, session, msg, ok) {
             <button type="submit">Save Permissions</button>
           </form>` : '';
         return `<div class="keeper-row">
-          <div class="keeper-name">${escapeHtml(u.username)}</div>
+          <div class="keeper-name">${escapeHtml(u.username)}${u.username === GOD_USERNAME ? ' (God)' : ''}</div>
           ${resetForm}${removeForm}${permsForm}
         </div>`;
       }).join('')
@@ -271,7 +266,10 @@ function keepersPage(users, session, msg, ok) {
     <p class="sub">${users.length} Keeper${users.length === 1 ? '' : 's'}</p>
     ${msg ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(msg)}</p>` : ''}
     ${rows}
-    <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+    <div class="nav-row">
+      <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+      <a class="nav-link" href="${SITE_URL}">Back to Site</a>
+    </div>
   `, true);
 }
 
@@ -309,41 +307,21 @@ export default {
 
     if (url.pathname === ADMIN_PATH && request.method === 'GET') {
       const session = await getSession(request, env);
-      const hasAnyCapability = session.superAdmin || session.perms.create || session.perms.reset || session.perms.remove;
-      if (!hasAnyCapability) {
-        return new Response(adminKeyPage(null), { headers: html });
+      if (!session.loggedIn) {
+        return Response.redirect(url.origin + '/keepers-secrets', 302);
       }
       return new Response(adminLanding(session), { headers: html });
     }
 
-    if (url.pathname === ADMIN_PATH + '/login' && request.method === 'POST') {
-      const form = await request.formData();
-      const adminKey = (form.get('adminKey') || '').toString();
-      const adminPassword = await env.ADMIN_PASSWORD.get();
-      if (!adminPassword || !timingSafeEqual(adminKey, adminPassword)) {
-        return new Response(adminKeyPage('Incorrect admin key.'), { status: 401, headers: html });
-      }
-      const exp = Math.floor(Date.now() / 1000) + ADMIN_COOKIE_MAX_AGE;
-      const authSecret = await env.AUTH_SECRET.get();
-      const token = await signToken({ admin: true, exp }, authSecret);
-      const headers = new Headers(html);
-      headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=${token}; Path=${ADMIN_PATH}; Max-Age=${ADMIN_COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
-      headers.set('Location', ADMIN_PATH);
-      return new Response(null, { status: 302, headers });
-    }
-
     if (url.pathname === ADMIN_PATH + '/logout') {
-      const headers = new Headers({ Location: ADMIN_PATH, 'Cache-Control': 'no-store, private' });
-      // Clears both the super-admin session and the caller's regular site
-      // login, since either one alone can grant access to this admin area.
-      headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=; Path=${ADMIN_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+      const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
       headers.append('Set-Cookie', `${COOKIE_NAME}=; Domain=919gaming.com; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
       return new Response(null, { status: 302, headers });
     }
 
     if (url.pathname === ADMIN_PATH + '/create' && request.method === 'GET') {
       const session = await getSession(request, env);
-      if (!session.superAdmin && !session.perms.create) {
+      if (!session.isGod && !session.perms.create) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const msg = url.searchParams.get('msg');
@@ -353,7 +331,7 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/create' && request.method === 'POST') {
       const session = await getSession(request, env);
-      if (!session.superAdmin && !session.perms.create) {
+      if (!session.isGod && !session.perms.create) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
@@ -372,7 +350,7 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
       const session = await getSession(request, env);
-      if (!session.superAdmin && !session.perms.reset && !session.perms.remove) {
+      if (!session.isGod && !session.perms.reset && !session.perms.remove) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const users = await listUsers(env);
@@ -383,7 +361,7 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/reset-password' && request.method === 'POST') {
       const session = await getSession(request, env);
-      if (!session.superAdmin && !session.perms.reset) {
+      if (!session.isGod && !session.perms.reset) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
@@ -407,11 +385,14 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
       const session = await getSession(request, env);
-      if (!session.superAdmin) {
+      if (!session.isGod) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
       const username = (form.get('username') || '').toString().trim().toLowerCase();
+      if (username === GOD_USERNAME) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('The God account always has every permission.'), 302);
+      }
       const key = 'user:' + username;
       const stored = await env.AUTH_KV.get(key);
       if (!stored) {
@@ -429,11 +410,14 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/delete' && request.method === 'POST') {
       const session = await getSession(request, env);
-      if (!session.superAdmin && !session.perms.remove) {
+      if (!session.isGod && !session.perms.remove) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
       const username = (form.get('username') || '').toString().trim().toLowerCase();
+      if (username === GOD_USERNAME) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('The God account cannot be removed.'), 302);
+      }
       await env.AUTH_KV.delete('user:' + username);
       return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Keeper "${username}" removed.`), 302);
     }

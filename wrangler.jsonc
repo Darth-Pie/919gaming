@@ -24,11 +24,6 @@
       "binding": "AUTH_SECRET",
       "store_id": "66787472c7c24607b228c9cef06da89d",
       "secret_name": "keeper-auth-secret"
-    },
-    {
-      "binding": "ADMIN_PASSWORD",
-      "store_id": "66787472c7c24607b228c9cef06da89d",
-      "secret_name": "keeper-auth-password"
     }
   ]
 }
