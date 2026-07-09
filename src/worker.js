@@ -1,8 +1,14 @@
-// "Keeper's Secrets" login gate. Serves a login form + a password-protected
-// admin dashboard for managing Keeper accounts, and passes every other
-// request through to the static site. On successful login, sets a signed
-// cookie scoped to the whole 919gaming.com domain so thebloom.919gaming.com
-// can verify it too.
+// "Keeper's Secrets" login gate. Serves a login form + a permission-gated
+// admin area for managing Keeper accounts, and passes every other request
+// through to the static site. On successful login, sets a signed cookie
+// scoped to the whole 919gaming.com domain so thebloom.919gaming.com can
+// verify it too.
+//
+// Two kinds of admin session:
+//  - super-admin: unlocked with the shared ADMIN_PASSWORD key, always has
+//    every capability (keeper_admin cookie, path-scoped to the admin area).
+//  - a regular Keeper (keeper_auth cookie) whose account has one or more
+//    capability flags (create / reset / remove) granted by the super-admin.
 
 const PROTECTED_URL = 'https://thebloom.919gaming.com/keeper.html';
 const COOKIE_NAME = 'keeper_auth';
@@ -78,6 +84,46 @@ function getCookie(request, name) {
   const match = cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
   return match ? decodeURIComponent(match[1]) : null;
 }
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function normalizePerms(rec) {
+  const p = (rec && rec.perms) || {};
+  return { create: !!p.create, reset: !!p.reset, remove: !!p.remove };
+}
+
+// Resolves the caller's admin session: super-admin (shared key) always has
+// every capability; a regular Keeper's capabilities come from their own
+// AUTH_KV record.
+async function getSession(request, env) {
+  const authSecret = await env.AUTH_SECRET.get();
+
+  const adminSession = await verifyToken(getCookie(request, ADMIN_COOKIE_NAME), authSecret);
+  if (adminSession && adminSession.admin) {
+    return { superAdmin: true, username: null, perms: { create: true, reset: true, remove: true } };
+  }
+
+  const userSession = await verifyToken(getCookie(request, COOKIE_NAME), authSecret);
+  if (userSession && userSession.u) {
+    const stored = await env.AUTH_KV.get('user:' + userSession.u);
+    const perms = stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false };
+    return { superAdmin: false, username: userSession.u, perms };
+  }
+
+  return { superAdmin: false, username: null, perms: { create: false, reset: false, remove: false } };
+}
+
+async function listUsers(env) {
+  const { keys } = await env.AUTH_KV.list({ prefix: 'user:' });
+  const users = [];
+  for (const k of keys) {
+    const username = k.name.slice('user:'.length);
+    const stored = await env.AUTH_KV.get(k.name);
+    users.push({ username, perms: stored ? normalizePerms(JSON.parse(stored)) : { create: false, reset: false, remove: false } });
+  }
+  users.sort((a, b) => a.username.localeCompare(b.username));
+  return users;
+}
 
 function page(title, bodyHtml, wide) {
   return `<!doctype html>
@@ -107,17 +153,25 @@ function page(title, bodyHtml, wide) {
   button:hover{ filter:brightness(1.1); }
   .msg{ font-family:'Cinzel',serif; font-size:12px; text-align:center; margin:0 0 16px; color:var(--wax); }
   .ok{ color:#2f5c2a; }
-  h2.section{ font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.14em; text-transform:uppercase;
-    color:var(--wax); border-bottom:1px solid rgba(58,42,26,0.25); padding-bottom:8px; margin:26px 0 14px; }
-  h2.section:first-child{ margin-top:0; }
-  table{ width:100%; border-collapse:collapse; margin-bottom:8px; }
-  td{ padding:8px 0; border-bottom:1px dashed rgba(58,42,26,0.2); font-family:'EB Garamond',serif; font-size:15px; }
-  td.actions{ text-align:right; }
-  td.actions button{ padding:6px 12px; font-size:11px; }
-  .empty{ font-family:'Cinzel',serif; font-size:12px; opacity:0.6; text-align:center; padding:12px 0; }
-  .logout{ display:block; text-align:center; font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
+  .admin-link{ display:block; text-align:center; font-family:'Cinzel',serif; font-size:14px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--gold-bright); text-decoration:none; padding:14px; border-radius:4px;
+    margin-bottom:12px; background:linear-gradient(180deg,#7c1f1f,#5c1414); box-shadow:0 6px 14px rgba(0,0,0,0.35); }
+  .admin-link:hover{ filter:brightness(1.1); }
+  .nav-link{ display:block; text-align:center; font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
     text-transform:uppercase; color:var(--ink); opacity:0.55; margin-top:22px; text-decoration:none; }
-  .logout:hover{ opacity:0.9; }
+  .nav-link:hover{ opacity:0.9; }
+  .keeper-row{ padding:14px 0; border-bottom:1px dashed rgba(58,42,26,0.2); }
+  .keeper-row:last-child{ border-bottom:none; }
+  .keeper-name{ font-family:'Cinzel',serif; font-weight:600; font-size:15px; margin-bottom:8px; }
+  .inline-form{ display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+  .inline-form input[type="password"]{ width:auto; flex:1; min-width:140px; margin-bottom:0; }
+  .inline-form button{ padding:9px 14px; font-size:11px; white-space:nowrap; }
+  .perms-form{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:8px 0 0;
+    padding-top:8px; border-top:1px solid rgba(58,42,26,0.12); }
+  .perms-form label{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.02em; text-transform:none;
+    display:flex; align-items:center; gap:5px; margin:0; }
+  .perms-form button{ padding:8px 14px; font-size:11px; }
+  .empty{ font-family:'Cinzel',serif; font-size:12px; opacity:0.6; text-align:center; padding:12px 0; }
 </style></head><body><div class="panel">${bodyHtml}</div></body></html>`;
 }
 
@@ -125,7 +179,7 @@ function loginPage(error) {
   return page("Keeper's Secrets", `
     <h1>Keeper's Secrets</h1>
     <p class="sub">Enter to proceed</p>
-    ${error ? `<p class="msg">${error}</p>` : ''}
+    ${error ? `<p class="msg">${escapeHtml(error)}</p>` : ''}
     <form method="POST" action="/keepers-secrets">
       <label for="u">Username</label>
       <input id="u" name="username" autocomplete="username" required>
@@ -139,7 +193,7 @@ function adminKeyPage(error) {
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Enter the admin key</p>
-    ${error ? `<p class="msg">${error}</p>` : ''}
+    ${error ? `<p class="msg">${escapeHtml(error)}</p>` : ''}
     <form method="POST" action="${ADMIN_PATH}/login">
       <label for="k">Admin Key</label>
       <input id="k" name="adminKey" type="password" required>
@@ -147,33 +201,28 @@ function adminKeyPage(error) {
     </form>`);
 }
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function adminDashboard(usernames, message, ok) {
-  const rows = usernames.length
-    ? usernames.map(u => `
-      <tr>
-        <td>${escapeHtml(u)}</td>
-        <td class="actions">
-          <form method="POST" action="${ADMIN_PATH}/delete" onsubmit="return confirm('Remove Keeper &quot;${escapeHtml(u)}&quot;?');" style="display:inline">
-            <input type="hidden" name="username" value="${escapeHtml(u)}">
-            <button type="submit">Remove</button>
-          </form>
-        </td>
-      </tr>`).join('')
-    : `<tr><td colspan="2" class="empty">No Keepers yet.</td></tr>`;
-
+function adminLanding(session) {
+  const links = [];
+  if (session.superAdmin || session.perms.reset || session.perms.remove) {
+    links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">Manage Keepers</a>`);
+  }
+  if (session.superAdmin || session.perms.create) {
+    links.push(`<a class="admin-link" href="${ADMIN_PATH}/create">Add a Keeper</a>`);
+  }
+  const logout = session.superAdmin ? `<a class="nav-link" href="${ADMIN_PATH}/logout">Log out of admin</a>` : '';
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
-    <p class="sub">Manage Keepers</p>
-    ${message ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(message)}</p>` : ''}
+    <p class="sub">Choose an area</p>
+    ${links.join('') || `<p class="empty">No admin capabilities on this account.</p>`}
+    ${logout}
+  `);
+}
 
-    <h2 class="section">Existing Keepers</h2>
-    <table>${rows}</table>
-
-    <h2 class="section">Create / Reset a Keeper</h2>
+function createPage(msg, ok) {
+  return page("Keeper's Secrets — Add a Keeper", `
+    <h1>Add a Keeper</h1>
+    <p class="sub">Create or overwrite a login</p>
+    ${msg ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(msg)}</p>` : ''}
     <form method="POST" action="${ADMIN_PATH}/create">
       <label for="nu">Username</label>
       <input id="nu" name="newUsername" required>
@@ -181,21 +230,49 @@ function adminDashboard(usernames, message, ok) {
       <input id="np" name="newPassword" type="password" required minlength="8">
       <button type="submit" class="wide">Save Keeper</button>
     </form>
+    <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+  `);
+}
 
-    <a class="logout" href="${ADMIN_PATH}/logout">Log out of admin</a>
+function keepersPage(users, session, msg, ok) {
+  const rows = users.length
+    ? users.map(u => {
+        const canReset = session.superAdmin || session.perms.reset;
+        const canRemove = session.superAdmin || session.perms.remove;
+        const resetForm = canReset ? `
+          <form method="POST" action="${ADMIN_PATH}/reset-password" class="inline-form">
+            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
+            <input type="password" name="newPassword" placeholder="New password" minlength="8" required>
+            <button type="submit">Reset Password</button>
+          </form>` : '';
+        const removeForm = canRemove ? `
+          <form method="POST" action="${ADMIN_PATH}/delete" class="inline-form"
+                onsubmit="return confirm('Remove Keeper &quot;${escapeHtml(u.username)}&quot;?');">
+            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
+            <button type="submit">Remove</button>
+          </form>` : '';
+        const permsForm = session.superAdmin ? `
+          <form method="POST" action="${ADMIN_PATH}/permissions" class="perms-form">
+            <input type="hidden" name="username" value="${escapeHtml(u.username)}">
+            <label><input type="checkbox" name="canCreate" ${u.perms.create ? 'checked' : ''}> Create</label>
+            <label><input type="checkbox" name="canReset" ${u.perms.reset ? 'checked' : ''}> Reset</label>
+            <label><input type="checkbox" name="canRemove" ${u.perms.remove ? 'checked' : ''}> Remove</label>
+            <button type="submit">Save Permissions</button>
+          </form>` : '';
+        return `<div class="keeper-row">
+          <div class="keeper-name">${escapeHtml(u.username)}</div>
+          ${resetForm}${removeForm}${permsForm}
+        </div>`;
+      }).join('')
+    : `<p class="empty">No Keepers yet.</p>`;
+
+  return page("Keeper's Secrets — Manage Keepers", `
+    <h1>Manage Keepers</h1>
+    <p class="sub">${users.length} Keeper${users.length === 1 ? '' : 's'}</p>
+    ${msg ? `<p class="msg${ok ? ' ok' : ''}">${escapeHtml(msg)}</p>` : ''}
+    ${rows}
+    <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
   `, true);
-}
-
-async function requireAdmin(request, env) {
-  const token = getCookie(request, ADMIN_COOKIE_NAME);
-  const authSecret = await env.AUTH_SECRET.get();
-  const session = await verifyToken(token, authSecret);
-  return !!(session && session.admin);
-}
-
-async function listUsernames(env) {
-  const { keys } = await env.AUTH_KV.list({ prefix: 'user:' });
-  return keys.map(k => k.name.slice('user:'.length)).sort();
 }
 
 export default {
@@ -231,13 +308,12 @@ export default {
     }
 
     if (url.pathname === ADMIN_PATH && request.method === 'GET') {
-      if (!(await requireAdmin(request, env))) {
+      const session = await getSession(request, env);
+      const hasAnyCapability = session.superAdmin || session.perms.create || session.perms.reset || session.perms.remove;
+      if (!hasAnyCapability) {
         return new Response(adminKeyPage(null), { headers: html });
       }
-      const usernames = await listUsernames(env);
-      const msg = url.searchParams.get('msg');
-      const ok = url.searchParams.get('ok') === '1';
-      return new Response(adminDashboard(usernames, msg, ok), { headers: html });
+      return new Response(adminLanding(session), { headers: html });
     }
 
     if (url.pathname === ADMIN_PATH + '/login' && request.method === 'POST') {
@@ -256,35 +332,107 @@ export default {
       return new Response(null, { status: 302, headers });
     }
 
+    if (url.pathname === ADMIN_PATH + '/logout') {
+      const headers = new Headers({ Location: ADMIN_PATH });
+      headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=; Path=${ADMIN_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+      return new Response(null, { status: 302, headers });
+    }
+
+    if (url.pathname === ADMIN_PATH + '/create' && request.method === 'GET') {
+      const session = await getSession(request, env);
+      if (!session.superAdmin && !session.perms.create) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const msg = url.searchParams.get('msg');
+      const ok = url.searchParams.get('ok') === '1';
+      return new Response(createPage(msg, ok), { headers: html });
+    }
+
     if (url.pathname === ADMIN_PATH + '/create' && request.method === 'POST') {
-      if (!(await requireAdmin(request, env))) {
+      const session = await getSession(request, env);
+      if (!session.superAdmin && !session.perms.create) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
       const newUsername = (form.get('newUsername') || '').toString().trim().toLowerCase();
       const newPassword = (form.get('newPassword') || '').toString();
       if (!newUsername || newPassword.length < 8) {
-        return Response.redirect(url.origin + ADMIN_PATH + '?ok=0&msg=' + encodeURIComponent('Username required; password must be at least 8 characters.'), 302);
+        return Response.redirect(url.origin + ADMIN_PATH + '/create?ok=0&msg=' + encodeURIComponent('Username required; password must be at least 8 characters.'), 302);
       }
+      // preserve an existing account's permissions if this overwrites it
+      const existing = await env.AUTH_KV.get('user:' + newUsername);
+      const perms = existing ? normalizePerms(JSON.parse(existing)) : { create: false, reset: false, remove: false };
       const { salt, hash } = await hashPassword(newPassword);
-      await env.AUTH_KV.put('user:' + newUsername, JSON.stringify({ salt, hash }));
-      return Response.redirect(url.origin + ADMIN_PATH + '?ok=1&msg=' + encodeURIComponent(`Keeper "${newUsername}" saved.`), 302);
+      await env.AUTH_KV.put('user:' + newUsername, JSON.stringify({ salt, hash, perms }));
+      return Response.redirect(url.origin + ADMIN_PATH + '/create?ok=1&msg=' + encodeURIComponent(`Keeper "${newUsername}" saved.`), 302);
+    }
+
+    if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
+      const session = await getSession(request, env);
+      if (!session.superAdmin && !session.perms.reset && !session.perms.remove) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const users = await listUsers(env);
+      const msg = url.searchParams.get('msg');
+      const ok = url.searchParams.get('ok') === '1';
+      return new Response(keepersPage(users, session, msg, ok), { headers: html });
+    }
+
+    if (url.pathname === ADMIN_PATH + '/reset-password' && request.method === 'POST') {
+      const session = await getSession(request, env);
+      if (!session.superAdmin && !session.perms.reset) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const form = await request.formData();
+      const username = (form.get('username') || '').toString().trim().toLowerCase();
+      const newPassword = (form.get('newPassword') || '').toString();
+      if (newPassword.length < 8) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Password must be at least 8 characters.'), 302);
+      }
+      const key = 'user:' + username;
+      const stored = await env.AUTH_KV.get(key);
+      if (!stored) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Unknown Keeper.'), 302);
+      }
+      const rec = JSON.parse(stored);
+      const { salt, hash } = await hashPassword(newPassword);
+      rec.salt = salt;
+      rec.hash = hash;
+      await env.AUTH_KV.put(key, JSON.stringify(rec));
+      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Password reset for "${username}".`), 302);
+    }
+
+    if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
+      const session = await getSession(request, env);
+      if (!session.superAdmin) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const form = await request.formData();
+      const username = (form.get('username') || '').toString().trim().toLowerCase();
+      const key = 'user:' + username;
+      const stored = await env.AUTH_KV.get(key);
+      if (!stored) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=0&msg=' + encodeURIComponent('Unknown Keeper.'), 302);
+      }
+      const rec = JSON.parse(stored);
+      rec.perms = {
+        create: form.has('canCreate'),
+        reset: form.has('canReset'),
+        remove: form.has('canRemove')
+      };
+      await env.AUTH_KV.put(key, JSON.stringify(rec));
+      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Permissions updated for "${username}".`), 302);
     }
 
     if (url.pathname === ADMIN_PATH + '/delete' && request.method === 'POST') {
-      if (!(await requireAdmin(request, env))) {
+      const session = await getSession(request, env);
+      if (!session.superAdmin && !session.perms.remove) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const form = await request.formData();
       const username = (form.get('username') || '').toString().trim().toLowerCase();
       await env.AUTH_KV.delete('user:' + username);
-      return Response.redirect(url.origin + ADMIN_PATH + '?ok=1&msg=' + encodeURIComponent(`Keeper "${username}" removed.`), 302);
-    }
-
-    if (url.pathname === ADMIN_PATH + '/logout') {
-      const headers = new Headers({ Location: ADMIN_PATH });
-      headers.append('Set-Cookie', `${ADMIN_COOKIE_NAME}=; Path=${ADMIN_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
-      return new Response(null, { status: 302, headers });
+      return Response.redirect(url.origin + ADMIN_PATH + '/keepers?ok=1&msg=' + encodeURIComponent(`Keeper "${username}" removed.`), 302);
     }
 
     return env.ASSETS.fetch(request);
