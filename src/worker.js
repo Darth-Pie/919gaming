@@ -221,6 +221,13 @@ export default {
     const url = new URL(request.url);
     const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
 
+    if (url.pathname === '/keepers-secrets/status' && request.method === 'GET') {
+      const session = await getSession(request, env);
+      return new Response(JSON.stringify({ loggedIn: session.loggedIn }), {
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store, private' }
+      });
+    }
+
     if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
       const existingSession = await getSession(request, env);
       if (existingSession.loggedIn) {

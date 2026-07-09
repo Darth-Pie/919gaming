@@ -170,6 +170,7 @@
     color:var(--gold); opacity:0.75; padding:6px 10px; border:1px solid rgba(201,169,106,0.35);
     border-radius:3px; background:rgba(13,9,6,0.35); transition:opacity 0.2s ease, border-color 0.2s ease; }
   .keeper-link:hover{ color:var(--gold-bright); opacity:1; border-color:rgba(201,169,106,0.7); }
+  .content-link{ top:54px; }
 
   /* ---- opened book overlay ---- */
   .overlay{ position:fixed; inset:0; z-index:50; display:none;
@@ -242,6 +243,7 @@
   <div class="wall"></div>
 
   <a href="/keepers-secrets" class="keeper-link">Keeper's Secrets</a>
+  <a href="https://thebloom.919gaming.com/keeper.html" class="keeper-link content-link" id="contentLink" style="display:none">The Blooming</a>
 
   <div class="stage">
     <div class="masthead">
@@ -421,6 +423,11 @@
   document.getElementById('close').addEventListener('click', closeBook);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeBook(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBook(); });
+
+  /* ---- reveal The Blooming link only when logged in ---- */
+  fetch('/keepers-secrets/status').then(r => r.json()).then(data => {
+    if (data.loggedIn) document.getElementById('contentLink').style.display = '';
+  }).catch(() => {});
 
   /* ---- ambient dust motes ---- */
   const motes = document.getElementById('motes');
