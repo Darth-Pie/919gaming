@@ -1,14 +1,17 @@
 // "Keeper's Secrets" — Discord OAuth login gate for the admin area.
 // Discord (OAuth2 Authorization Code flow) verifies identity and gates who
-// can log in at all (must hold LOGIN_ROLE_ID in the guild). Admin
-// permissions are NOT read from Discord roles: they live entirely in our
-// own AUTH_KV, keyed by Discord ID, and are granted/revoked by the God
-// account through our own admin UI. Passes every other request through to
-// the static site. On successful login, sets a signed cookie scoped to the
-// whole 919gaming.com domain so thebloom.919gaming.com can verify it too.
+// can log in at all (must be in the configured guild and hold the
+// configured login role -- editable at runtime by God via
+// /keepers-secrets/admin/config, for testing). Admin permissions are NOT
+// read from Discord roles: they live entirely in our own AUTH_KV, keyed by
+// Discord ID, and are granted/revoked by the God account through our own
+// admin UI. Passes every other request through to the static site. On
+// successful login, sets a signed cookie scoped to the whole
+// 919gaming.com domain so thebloom.919gaming.com can verify it too.
 //
-// A permanent "God" Discord account always has every admin capability.
-// Everyone else's admin access is a single "Trusted" flag God toggles.
+// A permanent "God" Discord account (hardcoded, bypasses guild/role checks
+// entirely) always has every admin capability. Everyone else's admin
+// access is a single "Trusted" flag God toggles.
 
 const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
@@ -20,9 +23,11 @@ const CALLBACK_PATH = '/keepers-secrets/callback';
 const REDIRECT_URI = 'https://919gaming.com' + CALLBACK_PATH;
 
 const DISCORD_CLIENT_ID = '1524888626629181542';
-const DISCORD_GUILD_ID = '1497395378495160493';
-const GOD_DISCORD_ID = '161833822307090432'; // permanent super-admin; always trusted
-const LOGIN_ROLE_ID = '1497395378931241056'; // required Discord role just to log in at all
+const GOD_DISCORD_ID = '161833822307090432'; // permanent super-admin; always trusted, bypasses guild/role checks entirely
+const CONFIG_KV_KEY = 'config:oauth';
+// Defaults, overridable at runtime via the God-only /keepers-secrets/admin/config page (stored in AUTH_KV).
+const DEFAULT_GUILD_ID = '1497395378495160493';
+const DEFAULT_LOGIN_ROLE_ID = '1497395378931241056';
 
 function b64urlEncode(buf) {
   let bin = '';
@@ -88,6 +93,20 @@ async function getSession(request, env) {
     isGod: !!session.isGod,
     trusted: !!session.trusted
   };
+}
+
+async function getConfig(env) {
+  const stored = await env.AUTH_KV.get(CONFIG_KV_KEY);
+  if (stored) {
+    try {
+      const cfg = JSON.parse(stored);
+      return {
+        guildId: cfg.guildId || DEFAULT_GUILD_ID,
+        loginRoleId: cfg.loginRoleId || DEFAULT_LOGIN_ROLE_ID
+      };
+    } catch (e) { /* fall through to defaults */ }
+  }
+  return { guildId: DEFAULT_GUILD_ID, loginRoleId: DEFAULT_LOGIN_ROLE_ID };
 }
 
 async function getKeeper(env, discordId) {
@@ -173,12 +192,35 @@ function adminLanding(session) {
   if (session.isGod || session.trusted) {
     links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">View Keepers</a>`);
   }
+  if (session.isGod) {
+    links.push(`<a class="admin-link" href="${ADMIN_PATH}/config">OAuth Config (testing)</a>`);
+  }
   const signedInAs = session.isGod ? `${escapeHtml(session.username)} (God)` : escapeHtml(session.username);
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Signed in as ${signedInAs}</p>
     ${links.join('') || `<p class="empty">No admin capabilities on this account. Ask the God account to mark you Trusted.</p>`}
     ${adminNav()}
+  `);
+}
+
+function configPage(config, msg) {
+  return page("Keeper's Secrets — OAuth Config", `
+    <h1>OAuth Config</h1>
+    <p class="sub">God only — testing</p>
+    ${msg ? `<p class="msg ok">${escapeHtml(msg)}</p>` : ''}
+    <form method="POST" action="${ADMIN_PATH}/config">
+      <label for="gid">Guild (Server) ID</label>
+      <input id="gid" name="guildId" value="${escapeHtml(config.guildId)}" required>
+      <label for="rid">Login Role ID</label>
+      <input id="rid" name="loginRoleId" value="${escapeHtml(config.loginRoleId)}" required>
+      <button type="submit" class="wide">Save</button>
+    </form>
+    <p class="msg">God bypasses these checks entirely, so changing them can't lock you out — only affects everyone else's login.</p>
+    <div class="nav-row">
+      <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
+      <a class="nav-link" href="${SITE_URL}">Back to Site</a>
+    </div>
   `);
 }
 
@@ -280,23 +322,27 @@ export default {
         headers: { Authorization: `Bearer ${access_token}` }
       });
       const user = await userRes.json();
-
-      const memberRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/${DISCORD_GUILD_ID}/member`, {
-        headers: { Authorization: `Bearer ${access_token}` }
-      });
-      if (!memberRes.ok) {
-        const headers = new Headers(html);
-        headers.append('Set-Cookie', clearState);
-        return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
-      }
-      const member = await memberRes.json();
-      const roles = member.roles || [];
-
       const isGod = user.id === GOD_DISCORD_ID;
-      if (!isGod && !roles.includes(LOGIN_ROLE_ID)) {
-        const headers = new Headers(html);
-        headers.append('Set-Cookie', clearState);
-        return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
+
+      // God bypasses guild/role checks entirely -- so changing the
+      // configured guild/role for testing can never lock God out.
+      if (!isGod) {
+        const config = await getConfig(env);
+        const memberRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/${config.guildId}/member`, {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        if (!memberRes.ok) {
+          const headers = new Headers(html);
+          headers.append('Set-Cookie', clearState);
+          return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
+        }
+        const member = await memberRes.json();
+        const roles = member.roles || [];
+        if (!roles.includes(config.loginRoleId)) {
+          const headers = new Headers(html);
+          headers.append('Set-Cookie', clearState);
+          return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
+        }
       }
 
       // Trust is our own data, not Discord's: preserve whatever the God
@@ -343,6 +389,31 @@ export default {
       }
       const users = await listKeepers(env);
       return new Response(keepersPage(users, session), { headers: html });
+    }
+
+    if (url.pathname === ADMIN_PATH + '/config' && request.method === 'GET') {
+      const session = await getSession(request, env);
+      if (!session.isGod) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const config = await getConfig(env);
+      const msg = url.searchParams.get('ok') === '1' ? 'Saved.' : null;
+      return new Response(configPage(config, msg), { headers: html });
+    }
+
+    if (url.pathname === ADMIN_PATH + '/config' && request.method === 'POST') {
+      const session = await getSession(request, env);
+      if (!session.isGod) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const form = await request.formData();
+      const guildId = (form.get('guildId') || '').toString().trim();
+      const loginRoleId = (form.get('loginRoleId') || '').toString().trim();
+      if (!guildId || !loginRoleId) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/config', 302);
+      }
+      await env.AUTH_KV.put(CONFIG_KV_KEY, JSON.stringify({ guildId, loginRoleId }));
+      return Response.redirect(url.origin + ADMIN_PATH + '/config?ok=1', 302);
     }
 
     if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
