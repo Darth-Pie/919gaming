@@ -1,13 +1,14 @@
 // "Keeper's Secrets" — Discord OAuth login gate for the admin area.
-// Identity and roles come entirely from Discord (OAuth2 Authorization Code
-// flow); nothing is stored locally except a lightweight directory of who
-// has logged in and their computed permissions (for the read-only Manage
-// Keepers page). Passes every other request through to the static site.
-// On successful login, sets a signed cookie scoped to the whole
-// 919gaming.com domain so thebloom.919gaming.com can verify it too.
+// Discord (OAuth2 Authorization Code flow) verifies identity and gates who
+// can log in at all (must hold LOGIN_ROLE_ID in the guild). Admin
+// permissions are NOT read from Discord roles: they live entirely in our
+// own AUTH_KV, keyed by Discord ID, and are granted/revoked by the God
+// account through our own admin UI. Passes every other request through to
+// the static site. On successful login, sets a signed cookie scoped to the
+// whole 919gaming.com domain so thebloom.919gaming.com can verify it too.
 //
 // A permanent "God" Discord account always has every admin capability.
-// One Discord role, if held, grants create + reset + remove together.
+// Everyone else's admin access is a single "Trusted" flag God toggles.
 
 const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
@@ -20,8 +21,8 @@ const REDIRECT_URI = 'https://919gaming.com' + CALLBACK_PATH;
 
 const DISCORD_CLIENT_ID = '1524888626629181542';
 const DISCORD_GUILD_ID = '1497395378495160493';
-const GOD_DISCORD_ID = '161833822307090432'; // permanent super-admin; always has every capability
-const TRUSTED_ROLE_ID = '1497395378931241056'; // grants create + reset + remove together
+const GOD_DISCORD_ID = '161833822307090432'; // permanent super-admin; always trusted
+const LOGIN_ROLE_ID = '1497395378931241056'; // required Discord role just to log in at all
 
 function b64urlEncode(buf) {
   let bin = '';
@@ -71,22 +72,27 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Resolves the caller's session from the single keeper_auth cookie. Perms
-// and God status are computed once at login (from Discord) and baked into
-// the signed token, so no Discord API calls happen on ordinary requests.
+// Resolves the caller's session from the single keeper_auth cookie. God
+// status and the Trusted flag are baked into the signed token at login
+// time (read from AUTH_KV then, not re-checked against Discord per request).
 async function getSession(request, env) {
   const authSecret = await env.AUTH_SECRET.get();
   const session = await verifyToken(getCookie(request, COOKIE_NAME), authSecret);
   if (!session || !session.id) {
-    return { loggedIn: false, discordId: null, username: null, isGod: false, perms: { create: false, reset: false, remove: false } };
+    return { loggedIn: false, discordId: null, username: null, isGod: false, trusted: false };
   }
   return {
     loggedIn: true,
     discordId: session.id,
     username: session.username,
     isGod: !!session.isGod,
-    perms: session.perms || { create: false, reset: false, remove: false }
+    trusted: !!session.trusted
   };
+}
+
+async function getKeeper(env, discordId) {
+  const stored = await env.AUTH_KV.get('discordUser:' + discordId);
+  return stored ? JSON.parse(stored) : null;
 }
 
 async function listKeepers(env) {
@@ -128,14 +134,21 @@ function page(title, bodyHtml, wide) {
   .nav-link{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.1em;
     text-transform:uppercase; color:var(--ink); opacity:0.55; text-decoration:none; }
   .nav-link:hover{ opacity:0.9; }
-  .keeper-row{ padding:12px 0; border-bottom:1px dashed rgba(58,42,26,0.2);
-    display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .keeper-row{ padding:12px 0; border-bottom:1px dashed rgba(58,42,26,0.2); }
   .keeper-row:last-child{ border-bottom:none; }
+  .keeper-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .keeper-name{ font-family:'Cinzel',serif; font-weight:600; font-size:15px; }
   .badges{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
   .badge{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
     padding:3px 8px; border-radius:10px; background:rgba(124,31,31,0.12); color:var(--wax); }
   .badge.god{ background:linear-gradient(180deg,#7c1f1f,#5c1414); color:var(--gold-bright); }
+  .perms-form{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .perms-form label{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.02em; text-transform:none;
+    display:flex; align-items:center; gap:5px; margin:0; }
+  .perms-form button{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:6px 12px; border:none; border-radius:4px; cursor:pointer; color:var(--gold-bright);
+    background:linear-gradient(180deg,#7c1f1f,#5c1414); }
+  .perms-form button:hover{ filter:brightness(1.1); }
   .empty{ font-family:'Cinzel',serif; font-size:12px; opacity:0.6; text-align:center; padding:12px 0; }
 </style></head><body><div class="panel">${bodyHtml}</div></body></html>`;
 }
@@ -157,37 +170,44 @@ function adminNav() {
 
 function adminLanding(session) {
   const links = [];
-  if (session.isGod || session.perms.create || session.perms.reset || session.perms.remove) {
+  if (session.isGod || session.trusted) {
     links.push(`<a class="admin-link" href="${ADMIN_PATH}/keepers">View Keepers</a>`);
   }
   const signedInAs = session.isGod ? `${escapeHtml(session.username)} (God)` : escapeHtml(session.username);
   return page("Keeper's Secrets — Admin", `
     <h1>Admin</h1>
     <p class="sub">Signed in as ${signedInAs}</p>
-    ${links.join('') || `<p class="empty">No admin capabilities on this account. Ask the God account to grant the Trusted Keeper role on Discord.</p>`}
+    ${links.join('') || `<p class="empty">No admin capabilities on this account. Ask the God account to mark you Trusted.</p>`}
     ${adminNav()}
   `);
 }
 
-function keepersPage(users) {
+function keepersPage(users, session) {
   const rows = users.length
     ? users.map(u => {
         const badges = [];
         if (u.isGod) badges.push(`<span class="badge god">God</span>`);
-        if (u.perms.create) badges.push(`<span class="badge">Create</span>`);
-        if (u.perms.reset) badges.push(`<span class="badge">Reset</span>`);
-        if (u.perms.remove) badges.push(`<span class="badge">Remove</span>`);
-        if (!badges.length) badges.push(`<span class="badge">Member</span>`);
+        else if (u.trusted) badges.push(`<span class="badge">Trusted</span>`);
+        else badges.push(`<span class="badge">Member</span>`);
+        const permsForm = (session.isGod && !u.isGod) ? `
+          <form method="POST" action="${ADMIN_PATH}/permissions" class="perms-form">
+            <input type="hidden" name="discordId" value="${escapeHtml(u.discordId)}">
+            <label><input type="checkbox" name="trusted" ${u.trusted ? 'checked' : ''}> Trusted</label>
+            <button type="submit">Save</button>
+          </form>` : '';
         return `<div class="keeper-row">
-          <div class="keeper-name">${escapeHtml(u.username)}</div>
-          <div class="badges">${badges.join('')}</div>
+          <div class="keeper-top">
+            <div class="keeper-name">${escapeHtml(u.username)}</div>
+            <div class="badges">${badges.join('')}</div>
+          </div>
+          ${permsForm}
         </div>`;
       }).join('')
     : `<p class="empty">No one has logged in yet.</p>`;
 
   return page("Keeper's Secrets — Keepers", `
     <h1>Keepers</h1>
-    <p class="sub">${users.length} logged in — roles managed on Discord</p>
+    <p class="sub">${users.length} logged in</p>
     ${rows}
     <div class="nav-row">
       <a class="nav-link" href="${ADMIN_PATH}">Back to Admin</a>
@@ -262,21 +282,29 @@ export default {
       const roles = member.roles || [];
 
       const isGod = user.id === GOD_DISCORD_ID;
-      const isTrusted = roles.includes(TRUSTED_ROLE_ID);
-      const perms = (isGod || isTrusted)
-        ? { create: true, reset: true, remove: true }
-        : { create: false, reset: false, remove: false };
+      if (!isGod && !roles.includes(LOGIN_ROLE_ID)) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
+      }
+
+      // Trust is our own data, not Discord's: preserve whatever the God
+      // account has already granted this Discord ID, defaulting to false
+      // for a first-time login.
+      const existing = await getKeeper(env, user.id);
+      const trusted = isGod || (existing ? !!existing.trusted : false);
 
       await env.AUTH_KV.put('discordUser:' + user.id, JSON.stringify({
+        discordId: user.id,
         username: user.username,
         isGod,
-        perms,
+        trusted,
         lastLogin: Date.now()
       }));
 
       const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
       const authSecret = await env.AUTH_SECRET.get();
-      const token = await signToken({ id: user.id, username: user.username, isGod, perms, exp }, authSecret);
+      const token = await signToken({ id: user.id, username: user.username, isGod, trusted, exp }, authSecret);
       const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
       headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
       headers.append('Set-Cookie', clearState);
@@ -299,11 +327,30 @@ export default {
 
     if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
       const session = await getSession(request, env);
-      if (!session.isGod && !session.perms.create && !session.perms.reset && !session.perms.remove) {
+      if (!session.isGod && !session.trusted) {
         return Response.redirect(url.origin + ADMIN_PATH, 302);
       }
       const users = await listKeepers(env);
-      return new Response(keepersPage(users), { headers: html });
+      return new Response(keepersPage(users, session), { headers: html });
+    }
+
+    if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
+      const session = await getSession(request, env);
+      if (!session.isGod) {
+        return Response.redirect(url.origin + ADMIN_PATH, 302);
+      }
+      const form = await request.formData();
+      const discordId = (form.get('discordId') || '').toString();
+      if (discordId === GOD_DISCORD_ID) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
+      }
+      const existing = await getKeeper(env, discordId);
+      if (!existing) {
+        return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
+      }
+      existing.trusted = form.has('trusted');
+      await env.AUTH_KV.put('discordUser:' + discordId, JSON.stringify(existing));
+      return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
     }
 
     return env.ASSETS.fetch(request);
