@@ -154,6 +154,21 @@
     mix-blend-mode:multiply; opacity:0.85; }
   .tex-whaler .band{ opacity:0.35; }
 
+  .tex-nebula{ box-shadow:inset 0 0 0 2px rgba(0,0,0,0.5), inset -4px 0 10px rgba(0,0,0,0.6),
+      inset 4px 0 6px rgba(120,140,220,0.08), inset 0 0 40px rgba(40,20,80,0.35), 0 18px 26px rgba(0,0,0,0.55); }
+  .tex-nebula::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 20% 12%, rgba(255,255,255,0.9) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 62% 8%, rgba(255,255,255,0.7) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 40% 28%, rgba(255,255,255,0.8) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 78% 40%, rgba(212,175,87,0.9) 0 1.2px, transparent 1.8px),
+      radial-gradient(circle at 15% 52%, rgba(255,255,255,0.6) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 55% 66%, rgba(255,255,255,0.85) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 85% 78%, rgba(212,175,87,0.8) 0 1.2px, transparent 1.8px),
+      radial-gradient(circle at 30% 90%, rgba(255,255,255,0.7) 0 1px, transparent 1.5px),
+      radial-gradient(ellipse at 50% 40%, rgba(90,70,150,0.28), transparent 60%);
+    mix-blend-mode:screen; opacity:0.85; }
+
   .ghost{ width:60px; height:262px; border-radius:4px 6px 6px 4px;
     border:1.5px dashed rgba(201,169,106,0.32); background:rgba(201,169,106,0.03);
     display:flex; align-items:center; justify-content:center; }
@@ -206,6 +221,12 @@
     justify-content:center; transition:transform 0.25s ease;
     box-shadow:0 10px 22px rgba(0,0,0,0.4), inset 0 0 16px rgba(0,0,0,0.45); }
   .seal:hover{ transform:scale(1.06); }
+  .badge{ width:220px; height:170px; padding:14px; border-radius:14px; display:flex;
+    align-items:center; justify-content:center; transition:transform 0.25s ease;
+    background:radial-gradient(ellipse at 50% 40%, rgba(212,175,87,0.12), transparent 70%);
+    box-shadow:0 10px 22px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(58,42,26,0.18); }
+  .badge:hover{ transform:scale(1.06); }
+  .badge img{ max-width:100%; max-height:100%; object-fit:contain; }
   .seal-label{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.18em;
     text-transform:uppercase; color:var(--ink-soft); margin:0; }
   .seal-host{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.06em;
@@ -309,7 +330,7 @@
       cover: 'radial-gradient(ellipse at 30% 20%, #43512f, #212b1c 55%, #0f150b 100%)',
       spine: { texture: 'victorian', grad: 'linear-gradient(90deg,#3c2b12 0%,#1c1408 42%,#3c2b12 88%,#130d05 100%)',
                band: '#1c1408', glow: 'rgba(240,216,150,0.4)', title: '#f5e6b8',
-               emblem: 'orchid', accent: '#f0d896', seal: true, height: 308 },
+               emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.png', height: 308 },
       flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
       description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
       url: 'https://thebloom.919gaming.com/',
@@ -327,17 +348,36 @@
       description: 'A multi-game gaming community forming around the MMORPG Pantheon: Rise of the Fallen. Much is yet unwritten, but the banner is raised and the ranks are opening.',
       url: 'https://squallriders.919gaming.com/',
       host: 'squallriders.919gaming.com'
+    },
+    {
+      kind: 'link',
+      label: 'Fleet 919',
+      title: 'Fleet 919',
+      cover: 'radial-gradient(ellipse at 30% 20%, #2a3568, #141a38 55%, #05060f 100%)',
+      spine: { texture: 'nebula', grad: 'linear-gradient(90deg,#1c2340 0%,#0e1226 42%,#1c2340 88%,#080a16 100%)',
+               band: '#0e1226', glow: 'rgba(212,175,87,0.3)', title: '#e3cf94',
+               accent: '#d4af57', seal: 'assets/fleet919.png' },
+      flavor: 'A fleet has been charted beyond the edge of the map, and 919 has raised its flag among the stars. Set your course, and the fleet will find you.',
+      description: "Fleet 919 is 919 Gaming's home base for coordinating play across games and platforms — musters, voice channels, and the crew keeping the lights on between campaigns.",
+      url: 'https://fleet919.org',
+      host: 'fleet919.org'
     }
   ];
   /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
-     'whaler' (dark cloth weave, matte, muted). New tomes can reuse one of these, or a new
-     .tex-<name> preset can be added alongside them below. Available emblems: 'ring' (monogram),
-     'orchid', 'whale' — or add a new case to emblemSVG(). */
+     'whaler' (dark cloth weave, matte, muted), 'nebula' (starfield flecks, for space/sci-fi tomes).
+     New tomes can reuse one of these, or a new .tex-<name> preset can be added alongside them below.
+     Available emblems: 'ring' (monogram), 'orchid', 'whale' — or add a new case to emblemSVG().
+     spine.seal: set to an image path (e.g. 'assets/fleet919.png') to use that image as the spine's
+     bottom emblem instead of emblemSVG() — used for a wax seal or a community's own logo alike.
+     kind: 'journal' (your links list), 'project' (description + "Break the Seal to Enter" wax-seal
+     CTA — used for community sites that don't need a distinct badge), or 'link' (description + the
+     book's own spine.seal image rendered as a clickable badge — used for linking straight to an
+     existing external site/brand, e.g. Fleet 919). Add a new kind by branching in rightPage(). */
 
   const STAR = '<svg width="24" height="24" viewBox="0 0 60 60" fill="none"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z" fill="#ecd8a4"/></svg>';
   const SIGIL = '<svg width="96" height="96" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="54" stroke="#c9a96a" stroke-width="2" opacity="0.75"/><circle cx="60" cy="60" r="42" stroke="#c9a96a" stroke-width="1" opacity="0.45"/><path d="M60 12 L67 52 L107 60 L67 68 L60 108 L53 68 L13 60 L53 52 Z" stroke="#ecd8a4" stroke-width="1.6" fill="none"/><circle cx="60" cy="60" r="5" fill="#c9a96a"/></svg>';
   const SEAL_STAR = '<img src="assets/sandstone.png" width="200" height="200" alt="seal"/>';
-  const SEAL_SMALL = '<span class="spine-seal"><img src="assets/sandstone.png" alt="wax seal"/></span>';
+  function sealSmall(path){ return '<span class="spine-seal"><img src="'+path+'" alt="seal"/></span>'; }
 
   function emblemSVG(spine){
     if (spine.emblem === 'orchid')
@@ -362,7 +402,7 @@
     el.style.setProperty('--band', s.band);
     el.style.setProperty('--glow', s.glow);
     const topIcon = (s.emblem === 'orchid' || s.emblem === 'whale') ? emblemSVG(s) : STAR;
-    const bottomEmblem = s.seal ? SEAL_SMALL : emblemSVG(s);
+    const bottomEmblem = s.seal ? sealSmall(s.seal) : emblemSVG(s);
     el.innerHTML =
       '<div class="band"></div>' + topIcon +
       '<div class="spine-title" style="color:'+s.title+'">'+b.title+'</div>' +
@@ -393,6 +433,17 @@
         '<p class="chapter-label">The Fellowship</p>' +
         '<h3 class="chapter-title sm">Find Me in the Wild</h3>' +
         '<div class="links">'+rows+'</div></div>';
+    }
+    if (b.kind === 'link'){
+      return '<div class="page right">' +
+        '<p class="chapter-label">The Muster</p>' +
+        '<h3 class="chapter-title sm">Answer the Call</h3>' +
+        '<p class="desc">'+b.description+'</p>' +
+        '<div class="seal-wrap">' +
+          '<a class="badge" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Visit '+b.title+'"><img src="'+b.spine.seal+'" alt="'+b.title+'"/></a>' +
+          '<p class="seal-label">Join the Fleet</p>' +
+          '<p class="seal-host">'+b.host+'</p>' +
+        '</div></div>';
     }
     return '<div class="page right">' +
       '<p class="chapter-label">The Tale</p>' +
