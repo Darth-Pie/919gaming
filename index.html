@@ -215,6 +215,64 @@
   .flavor{ line-height:1.7; font-size:17.5px; margin:0; }
   .desc{ line-height:1.68; font-size:16.5px; margin:0 0 26px; }
 
+  /* ---- left-page image carousel (optional, per-book gallery) ----
+     Always renders 3 fixed slots (left/center/right). The center slot sits full-width*0.5,
+     with each neighbor peeking in 25% of the viewport on either side (viewport overflow:hidden
+     clips the rest). Navigating slides the whole slot group sideways, then swaps which images
+     occupy each slot and snaps back invisibly — giving a slower "shuffling a stack of photos"
+     feel rather than an instant cut. */
+  .gallery{ display:flex; align-items:center; gap:8px; margin-top:24px; }
+  .gal-arrow{ flex-shrink:0; background:none; border:none; cursor:pointer; font-size:32px; line-height:1;
+    padding:4px 8px; color:var(--wax); font-family:'Cinzel',serif; transition:color 0.2s ease; }
+  .gal-arrow:hover{ color:var(--wax-dk); }
+  .gal-viewport{ flex:1 1 auto; height:250px; overflow:hidden; position:relative; }
+  .gal-slots{ position:relative; width:100%; height:100%; }
+  .gal-slot{ position:absolute; top:0; width:50%; height:100%; box-sizing:border-box; padding:0 7px; }
+  .gal-slot.slot-l{ left:-25%; } .gal-slot.slot-c{ left:25%; z-index:2; } .gal-slot.slot-r{ left:75%; }
+
+  /* ---- polaroid frame: cream border, thick bottom strip, tilted like a photo tossed on a desk ---- */
+  .polaroid{ width:100%; height:100%; box-sizing:border-box; padding:9px 9px 26px; cursor:pointer;
+    background:linear-gradient(155deg,#f2ead6,#e6d9bb 55%,#d9caa2);
+    box-shadow:0 16px 30px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.2);
+    display:flex; position:relative;
+    transition:transform 0.8s cubic-bezier(.22,.85,.34,1), opacity 0.8s ease, filter 0.8s ease; }
+  .polaroid::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 22% 18%, rgba(255,255,255,0.35), transparent 55%),
+      radial-gradient(circle at 82% 88%, rgba(0,0,0,0.15), transparent 60%),
+      repeating-linear-gradient(125deg, rgba(0,0,0,0.03) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply; }
+  .photo-window{ flex:1; position:relative; overflow:hidden; background:#000;
+    box-shadow:inset 0 0 14px rgba(0,0,0,0.5); }
+  .photo-window img{ width:100%; height:100%; object-fit:cover; display:block;
+    filter:sepia(0.5) contrast(1.08) brightness(0.88) saturate(0.65); }
+  .stamp{ position:absolute; top:7px; right:7px; padding:2px 6px; border:1.5px solid rgba(140,20,20,0.55);
+    color:rgba(140,20,20,0.62); font-family:'Cinzel',serif; font-size:8.5px; letter-spacing:0.14em;
+    text-transform:uppercase; transform:rotate(-9deg); pointer-events:none; mix-blend-mode:multiply; }
+
+  .slot-c .polaroid{ transform:scale(1) rotate(-1.5deg); opacity:1; }
+  .slot-l .polaroid{ transform:scale(0.84) rotate(-8deg); opacity:0.65; filter:brightness(0.68) saturate(0.85); }
+  .slot-r .polaroid{ transform:scale(0.84) rotate(7deg); opacity:0.65; filter:brightness(0.68) saturate(0.85); }
+  .gal-dots{ display:flex; justify-content:center; gap:7px; margin-top:12px; }
+  .gal-dots .dot{ width:7px; height:7px; border-radius:50%; background:rgba(58,42,26,0.25);
+    cursor:pointer; transition:background 0.2s ease; }
+  .gal-dots .dot.active{ background:var(--wax); }
+
+  /* ---- lightbox for enlarging a gallery image ---- */
+  .lightbox{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    padding:24px; background:rgba(6,4,2,0.92); }
+  .lightbox.show{ display:flex; animation:backdropIn 0.3s ease both; }
+  .lightbox img{ max-width:min(88vw,720px); max-height:88vh; border-radius:6px; box-shadow:0 30px 70px rgba(0,0,0,0.6);
+    filter:sepia(0.5) contrast(1.08) brightness(0.88) saturate(0.65); }
+  .lb-close{ position:fixed; top:20px; right:24px; z-index:61; width:40px; height:40px;
+    border-radius:50%; border:none; cursor:pointer; font-size:20px; font-family:'Cinzel',serif;
+    color:var(--gold-bright); background:radial-gradient(circle at 35% 30%,#9a2b2b,var(--wax-dk));
+    box-shadow:0 6px 16px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4); }
+  .lb-arrow{ position:fixed; top:50%; transform:translateY(-50%); z-index:61; background:none; border:none;
+    font-size:48px; padding:12px; cursor:pointer; color:rgba(236,216,164,0.85); transition:color 0.2s ease; }
+  .lb-arrow:hover{ color:#fff; }
+  .lb-prev{ left:12px; } .lb-next{ right:12px; }
+
   .seal-wrap{ margin-top:auto; display:flex; flex-direction:column; align-items:center;
     gap:11px; padding-top:12px; }
   .seal{ width:200px; height:200px; border-radius:50%; display:flex; align-items:center;
@@ -300,6 +358,14 @@
     </div>
   </div>
 
+  <!-- lightbox for enlarging a tome's gallery images -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-close" id="lbClose" aria-label="Close">&times;</button>
+    <button class="lb-arrow lb-prev" id="lbPrev" aria-label="Previous image">&lsaquo;</button>
+    <img id="lbImg" alt="">
+    <button class="lb-arrow lb-next" id="lbNext" aria-label="Next image">&rsaquo;</button>
+  </div>
+
 <script>
   /* =========================================================================
      ADD A PROJECT: append an object to this array. That's the only edit needed.
@@ -332,6 +398,7 @@
                band: '#1c1408', glow: 'rgba(240,216,150,0.4)', title: '#f5e6b8',
                emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.png', height: 308 },
       flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
+      gallery: ['assets/orchidheader.png', 'assets/zebulon.png', 'assets/reginald.png'],
       description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
       url: 'https://thebloom.919gaming.com/',
       host: 'thebloom.919gaming.com'
@@ -359,8 +426,8 @@
                accent: '#d4af57', seal: 'assets/fleet919.png' },
       flavor: 'A fleet has been charted beyond the edge of the map, and 919 has raised its flag among the stars. Set your course, and the fleet will find you.',
       description: "Fleet 919 is 919 Gaming's home base for coordinating play across games and platforms — musters, voice channels, and the crew keeping the lights on between campaigns.",
-      url: 'https://fleet919.org',
-      host: 'fleet919.org'
+      url: 'https://f919.org',
+      host: 'f919.org'
     }
   ];
   /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
@@ -456,6 +523,80 @@
       '</div></div>';
   }
 
+  function galleryHTML(images){
+    const dots = images.map((_, i) => '<span class="dot'+(i===0?' active':'')+'" data-i="'+i+'"></span>').join('');
+    const polaroid = suffix => '<div class="polaroid"><div class="photo-window">' +
+      '<img id="slotImg'+suffix+'" alt=""><span class="stamp">Evidence</span></div></div>';
+    return '<div class="gallery">' +
+        '<button class="gal-arrow gal-prev" aria-label="Previous image">&lsaquo;</button>' +
+        '<div class="gal-viewport"><div class="gal-slots" id="galSlots">' +
+          '<div class="gal-slot slot-l">'+polaroid('L')+'</div>' +
+          '<div class="gal-slot slot-c">'+polaroid('C')+'</div>' +
+          '<div class="gal-slot slot-r">'+polaroid('R')+'</div>' +
+        '</div></div>' +
+        '<button class="gal-arrow gal-next" aria-label="Next image">&rsaquo;</button>' +
+      '</div>' +
+      '<div class="gal-dots" id="galDots">'+dots+'</div>';
+  }
+
+  const GAL_SLIDE_MS = 800;
+  let galleryImgs = [], galleryIdx = 0;
+
+  function paintGallerySlots(){
+    const n = galleryImgs.length;
+    document.getElementById('slotImgL').src = galleryImgs[(galleryIdx - 1 + n) % n];
+    document.getElementById('slotImgC').src = galleryImgs[galleryIdx];
+    document.getElementById('slotImgR').src = galleryImgs[(galleryIdx + 1) % n];
+    const dots = document.getElementById('galDots');
+    if (dots) dots.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === galleryIdx));
+    if (lightbox.classList.contains('show')) lbImg.src = galleryImgs[galleryIdx];
+  }
+
+  // slides the slot group sideways (the "shuffle"), then swaps slot contents and snaps back invisibly
+  function galNav(delta){
+    const slots = document.getElementById('galSlots');
+    if (!slots) return;
+    const vp = slots.parentElement;
+    slots.style.transition = 'transform '+GAL_SLIDE_MS+'ms cubic-bezier(.22,.85,.34,1)';
+    slots.style.transform = 'translateX(' + (-delta * vp.clientWidth * 0.5) + 'px)';
+    setTimeout(() => {
+      galleryIdx = (galleryIdx + delta + galleryImgs.length) % galleryImgs.length;
+      slots.style.transition = 'none';
+      slots.style.transform = 'translateX(0)';
+      void slots.offsetWidth; // force reflow so the next transition re-applies cleanly
+      paintGallerySlots();
+    }, GAL_SLIDE_MS);
+  }
+
+  // lightbox prev/next: jump instantly, keep the inline carousel in sync for when it closes
+  function lbNav(delta){
+    galleryIdx = (galleryIdx + delta + galleryImgs.length) % galleryImgs.length;
+    lbImg.src = galleryImgs[galleryIdx];
+    const slots = document.getElementById('galSlots');
+    if (slots) { slots.style.transition = 'none'; slots.style.transform = 'translateX(0)'; }
+    paintGallerySlots();
+  }
+
+  function galJumpTo(i){
+    if (i === galleryIdx) { openLightbox(); return; }
+    const n = galleryImgs.length;
+    if ((galleryIdx + 1) % n === i) galNav(1);
+    else if ((galleryIdx - 1 + n) % n === i) galNav(-1);
+    else { galleryIdx = i; paintGallerySlots(); }
+  }
+
+  function setupGallery(images){
+    galleryImgs = images; galleryIdx = 0;
+    spread.querySelector('.gal-prev').addEventListener('click', () => galNav(-1));
+    spread.querySelector('.gal-next').addEventListener('click', () => galNav(1));
+    document.getElementById('slotImgL').addEventListener('click', () => galNav(-1));
+    document.getElementById('slotImgR').addEventListener('click', () => galNav(1));
+    document.getElementById('slotImgC').addEventListener('click', openLightbox);
+    spread.querySelectorAll('.gal-dots .dot').forEach(d =>
+      d.addEventListener('click', () => galJumpTo(+d.dataset.i)));
+    paintGallerySlots();
+  }
+
   function openBook(i){
     const b = books[i];
     spread.innerHTML =
@@ -463,6 +604,7 @@
         '<p class="chapter-label">'+b.label+'</p>' +
         '<h2 class="chapter-title">'+b.title+'</h2>' +
         '<p class="flavor">'+b.flavor+'</p>' +
+        (b.gallery ? galleryHTML(b.gallery) : '') +
       '</div>' +
       rightPage(b) +
       '<div class="cover"><div class="cover-face" style="background:'+b.cover+'">' +
@@ -471,13 +613,27 @@
     overlay.classList.add('show');
     // re-trigger the spreadIn / coverSwing animations
     book.style.animation = 'none'; void book.offsetWidth; book.style.animation = '';
+    if (b.gallery) setupGallery(b.gallery);
   }
 
   function closeBook(){ overlay.classList.remove('show'); }
 
+  /* ---- lightbox: click a gallery image to view it enlarged ---- */
+  const lightbox = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  function openLightbox(){ lbImg.src = galleryImgs[galleryIdx]; lightbox.classList.add('show'); }
+  function closeLightbox(){ lightbox.classList.remove('show'); }
+  document.getElementById('lbClose').addEventListener('click', closeLightbox);
+  document.getElementById('lbPrev').addEventListener('click', () => lbNav(-1));
+  document.getElementById('lbNext').addEventListener('click', () => lbNav(1));
+  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+
   document.getElementById('close').addEventListener('click', closeBook);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeBook(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBook(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (lightbox.classList.contains('show')) closeLightbox(); else closeBook();
+  });
 
   /* ---- reveal The Blooming link only when logged in ---- */
   fetch('/keepers-secrets/status').then(r => r.json()).then(data => {
