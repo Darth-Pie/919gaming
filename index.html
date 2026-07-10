@@ -215,6 +215,13 @@
   .flavor{ line-height:1.7; font-size:17.5px; margin:0; }
   .desc{ line-height:1.68; font-size:16.5px; margin:0 0 26px; }
 
+  /* ---- left-page single illustration (optional, per-book leftImage) ---- */
+  .log-image{ margin-top:24px; padding:18px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 40%, rgba(143,168,189,0.16), transparent 70%);
+    box-shadow:0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(58,42,26,0.15); }
+  .log-image img{ max-width:100%; max-height:220px; object-fit:contain; display:block; }
+
   /* ---- left-page image carousel (optional, per-book gallery) ----
      Always renders 3 fixed slots (left/center/right). The center slot sits full-width*0.5,
      with each neighbor peeking in 25% of the viewport on either side (viewport overflow:hidden
@@ -412,6 +419,13 @@
                band: '#0a121c', glow: 'rgba(120,150,180,0.22)', title: '#a8bccc',
                emblem: 'whale', accent: '#8fa8bd', height: 316 },
       flavor: 'A storm gathers on the horizon of a fallen world, and riders are answering its call. The muster has only just begun.',
+      leftImage: 'assets/frigate.png',
+      sealShape: 'badge',
+      sealImage: 'assets/wave.png',
+      headerColor: '#1c3f5c',
+      pageLabel: 'The Ship’s Log',
+      pageTitle: 'Chart a Course',
+      ctaText: 'Weigh Anchor to Enter',
       description: 'A multi-game gaming community forming around the MMORPG Pantheon: Rise of the Fallen. Much is yet unwritten, but the banner is raised and the ranks are opening.',
       url: 'https://squallriders.919gaming.com/',
       host: 'squallriders.919gaming.com'
@@ -443,7 +457,6 @@
 
   const STAR = '<svg width="24" height="24" viewBox="0 0 60 60" fill="none"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z" fill="#ecd8a4"/></svg>';
   const SIGIL = '<svg width="96" height="96" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="54" stroke="#c9a96a" stroke-width="2" opacity="0.75"/><circle cx="60" cy="60" r="42" stroke="#c9a96a" stroke-width="1" opacity="0.45"/><path d="M60 12 L67 52 L107 60 L67 68 L60 108 L53 68 L13 60 L53 52 Z" stroke="#ecd8a4" stroke-width="1.6" fill="none"/><circle cx="60" cy="60" r="5" fill="#c9a96a"/></svg>';
-  const SEAL_STAR = '<img src="assets/sandstone.png" width="200" height="200" alt="seal"/>';
   function sealSmall(path){ return '<span class="spine-seal"><img src="'+path+'" alt="seal"/></span>'; }
 
   function emblemSVG(spine){
@@ -512,13 +525,22 @@
           '<p class="seal-host">'+b.host+'</p>' +
         '</div></div>';
     }
+    // 'project': description + an "enter" seal. Defaults to the classic circular wax seal
+    // (spine.seal image, sandstone by default); set sealShape:'badge' for a non-circular
+    // logo/icon instead (like the 'link' kind's badge). pageLabel/pageTitle/ctaText override
+    // the default wording per book.
+    const sealImg = b.sealImage || 'assets/sandstone.png';
+    const sealMarkup = (b.sealShape === 'badge')
+      ? '<a class="badge" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm"><img src="'+sealImg+'" alt="'+b.title+'"/></a>'
+      : '<a class="seal" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm"><img src="'+sealImg+'" width="200" height="200" alt="seal"/></a>';
+    const hc = b.headerColor ? ' style="color:'+b.headerColor+'"' : '';
     return '<div class="page right">' +
-      '<p class="chapter-label">The Tale</p>' +
-      '<h3 class="chapter-title sm">Of This Realm</h3>' +
+      '<p class="chapter-label"'+hc+'>'+(b.pageLabel || 'The Tale')+'</p>' +
+      '<h3 class="chapter-title sm"'+hc+'>'+(b.pageTitle || 'Of This Realm')+'</h3>' +
       '<p class="desc">'+b.description+'</p>' +
       '<div class="seal-wrap">' +
-        '<a class="seal" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm">'+SEAL_STAR+'</a>' +
-        '<p class="seal-label">Break the Seal to Enter</p>' +
+        sealMarkup +
+        '<p class="seal-label">'+(b.ctaText || 'Break the Seal to Enter')+'</p>' +
         '<p class="seal-host">'+b.host+'</p>' +
       '</div></div>';
   }
@@ -599,11 +621,13 @@
 
   function openBook(i){
     const b = books[i];
+    const hc = b.headerColor ? ' style="color:'+b.headerColor+'"' : '';
     spread.innerHTML =
       '<div class="page left">' +
-        '<p class="chapter-label">'+b.label+'</p>' +
-        '<h2 class="chapter-title">'+b.title+'</h2>' +
+        '<p class="chapter-label"'+hc+'>'+b.label+'</p>' +
+        '<h2 class="chapter-title"'+hc+'>'+b.title+'</h2>' +
         '<p class="flavor">'+b.flavor+'</p>' +
+        (b.leftImage ? '<div class="log-image"><img src="'+b.leftImage+'" alt=""></div>' : '') +
         (b.gallery ? galleryHTML(b.gallery) : '') +
       '</div>' +
       rightPage(b) +
