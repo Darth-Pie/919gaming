@@ -29,7 +29,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pirata+One&family=IM+Fell+English:ital@0;1&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Big+Shoulders+Stencil:wght@600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: dark;
@@ -44,7 +44,7 @@
   body{
     min-height:100vh; position:relative; overflow-x:hidden;
     font-family:'EB Garamond',serif; color:var(--parchment);
-    background:radial-gradient(ellipse at 50% 22%, #0d1409 0%, #060a04 55%, var(--shadow) 100%);
+    background:radial-gradient(ellipse at 50% 22%, #1a080c 0%, #0a0305 55%, var(--shadow) 100%);
   }
   a{ color:var(--gold); text-decoration:none; }
   a:hover{ color:var(--gold-bright); }
@@ -57,18 +57,18 @@
     background:var(--gold-bright); opacity:0.35; animation:drift linear infinite; }
   .wall{ position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
-      /* damp mildew stains */
-      radial-gradient(circle at 10% 14%, rgba(55,78,36,0.24), transparent 42%),
-      radial-gradient(circle at 88% 76%, rgba(30,48,22,0.28), transparent 46%),
-      radial-gradient(circle at 68% 6%, rgba(70,95,48,0.12), transparent 36%),
-      radial-gradient(circle at 24% 92%, rgba(14,24,10,0.4), transparent 40%),
-      /* flocked damask diamond weave */
-      repeating-linear-gradient(45deg, rgba(0,0,0,0.24) 0 3px, transparent 3px 68px),
-      repeating-linear-gradient(-45deg, rgba(0,0,0,0.24) 0 3px, transparent 3px 68px),
-      repeating-linear-gradient(45deg, rgba(120,150,90,0.10) 0 2px, transparent 2px 34px),
-      repeating-linear-gradient(-45deg, rgba(120,150,90,0.10) 0 2px, transparent 2px 34px),
+      /* deep wine stains */
+      radial-gradient(circle at 10% 14%, rgba(90,20,32,0.26), transparent 42%),
+      radial-gradient(circle at 88% 76%, rgba(64,12,24,0.3), transparent 46%),
+      radial-gradient(circle at 68% 6%, rgba(110,26,40,0.14), transparent 36%),
+      radial-gradient(circle at 24% 92%, rgba(30,6,12,0.42), transparent 40%),
+      /* flocked damask diamond weave, gold-foil pinstripe sheen */
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.26) 0 3px, transparent 3px 68px),
+      repeating-linear-gradient(-45deg, rgba(0,0,0,0.26) 0 3px, transparent 3px 68px),
+      repeating-linear-gradient(45deg, rgba(201,169,106,0.11) 0 2px, transparent 2px 34px),
+      repeating-linear-gradient(-45deg, rgba(201,169,106,0.11) 0 2px, transparent 2px 34px),
       /* base wallpaper wash */
-      radial-gradient(ellipse at 50% 30%, rgba(70,95,45,0.14), transparent 60%); }
+      radial-gradient(ellipse at 50% 30%, rgba(90,20,32,0.16), transparent 60%); }
   .wall::after{ content:""; position:absolute; inset:0;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     opacity:0.12; mix-blend-mode:overlay; }
@@ -189,6 +189,15 @@
       radial-gradient(ellipse at 50% 40%, rgba(90,70,150,0.28), transparent 60%);
     mix-blend-mode:screen; opacity:0.85; }
 
+  .tex-hazard{ box-shadow:inset 0 0 0 2px rgba(0,0,0,0.5), inset -4px 0 8px rgba(0,0,0,0.55),
+      inset 4px 0 4px rgba(255,176,32,0.06), 0 18px 26px rgba(0,0,0,0.55); }
+  .tex-hazard::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,176,32,0.16) 0 6px, transparent 6px 16px),
+      radial-gradient(circle at 30% 15%, rgba(0,0,0,0.35), transparent 50%),
+      radial-gradient(circle at 68% 82%, rgba(0,0,0,0.3), transparent 55%);
+    mix-blend-mode:overlay; opacity:0.85; }
+
   .ghost{ width:60px; height:262px; border-radius:4px 6px 6px 4px;
     border:1.5px dashed rgba(201,169,106,0.32); background:rgba(201,169,106,0.03);
     display:flex; align-items:center; justify-content:center; }
@@ -227,6 +236,37 @@
       linear-gradient(var(--parchment),var(--parchment-dk)); }
   .page.left{ border-right:2px solid rgba(0,0,0,0.25); box-shadow:inset -18px 0 30px -20px rgba(0,0,0,0.5); }
   .page.right{ box-shadow:inset 18px 0 30px -20px rgba(0,0,0,0.5); display:flex; flex-direction:column; }
+
+  /* ---- page texture presets (per-book, optional pageTexture field) ---- */
+  .tex-page-aged{
+    background:
+      radial-gradient(circle at 12% 18%, rgba(35,22,8,0.32), transparent 36%),
+      radial-gradient(circle at 85% 12%, rgba(48,30,12,0.24), transparent 40%),
+      radial-gradient(circle at 28% 88%, rgba(30,18,6,0.3), transparent 38%),
+      radial-gradient(circle at 90% 80%, rgba(45,28,10,0.22), transparent 42%),
+      radial-gradient(ellipse at 20% 0%, rgba(0,0,0,0.14), transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E"),
+      linear-gradient(#ab8f60,#7d6640);
+  }
+  .tex-page-aged.left{ box-shadow:inset -18px 0 30px -20px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.25); }
+  .tex-page-aged.right{ box-shadow:inset 18px 0 30px -20px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.25); }
+  /* body copy: solid, dark ink so long passages stay legible against the lightened parchment.
+     font-weight:600 (not the default 400) is doing real work here — EB Garamond's regular
+     weight is thin enough that even high-contrast dark ink reads faint against a textured
+     background; the heavier weight keeps it ornate but gives the strokes actual body. */
+  .tex-page-aged .flavor, .tex-page-aged .desc, .tex-page-aged .links a{
+    color:#2b1b06; font-weight:600; letter-spacing:0.01em;
+    text-shadow:0 1px 0 rgba(255,214,140,0.28); }
+  .tex-page-aged .links a{ border-bottom-color:rgba(43,27,6,0.25); }
+  .tex-page-aged .links a .arrow{ color:#6b4a12; }
+  /* headings: raised gold-foil effect (gradient fill + hard dark stroke + engraved shadow).
+     The stroke is what actually guarantees legibility here — gold-on-tan is same-hue-family,
+     so a soft shadow alone washes out over the lighter parts of the background. */
+  .tex-page-aged .chapter-label, .tex-page-aged .chapter-title{
+    color:#4a3009; background-image:linear-gradient(155deg,#e8bd6a 0%,#b9822a 40%,#6b4610 70%,#e0b862 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    -webkit-text-stroke:1px rgba(18,11,3,0.8);
+    text-shadow:0 1px 1px rgba(0,0,0,0.65), 0 2px 5px rgba(0,0,0,0.45); }
   .chapter-label{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.24em;
     text-transform:uppercase; color:var(--ink-soft); margin:0 0 8px; }
   .chapter-title{ font-family:'Cinzel Decorative',serif; font-size:clamp(26px,3.4vw,36px);
@@ -325,6 +365,8 @@
   .links a:last-child{ border-bottom:none; }
   .links a:hover{ padding-left:8px; color:var(--wax); }
   .links a .arrow{ color:var(--wax); }
+  .link-icon{ width:14px; height:14px; margin-right:7px; vertical-align:-2px; flex-shrink:0; }
+  .link-icon-raven{ width:26px; height:13px; margin-right:6px; vertical-align:-1px; }
 
   /* hinged cover swings open on mount */
   .cover{ position:absolute; inset:0; transform-origin:left center; transform-style:preserve-3d;
@@ -410,10 +452,11 @@
                band: '#1c1108', glow: 'rgba(156,90,58,0.3)', title: '#d8c7a8',
                emblem: 'ring', mark: 'K', accent: '#9c5a3a', height: 320 },
       // Left page: your bio.  Right page: your links.
+      pageTexture: 'aged',
       flavor: 'Enter the dark mind of the Keeper, and find the keys to the realms beyond.',
       links: [
-        { name: 'Discord', url: 'https://discord.gg/fleet919' },
-        { name: 'Send a Raven (Email)', url: 'mailto:darthchurchill@gmail.com' }
+        { name: 'Discord', url: 'https://discord.gg/fleet919', icon: 'discord' },
+        { name: 'Send a Raven (Email)', url: 'mailto:darthchurchill@gmail.com', icon: 'raven' }
       ]
     },
     {
@@ -426,6 +469,7 @@
                emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.png', height: 308 },
       flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
       gallery: ['assets/orchidheader.png', 'assets/zebulon.png', 'assets/reginald.png'],
+      sealSize: 160,
       description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
       url: 'https://thebloom.919gaming.com/',
       host: 'thebloom.919gaming.com'
@@ -443,6 +487,8 @@
       sealShape: 'badge',
       sealImage: 'assets/wave.png',
       headerColor: '#1c3f5c',
+      titleFont: "'Pirata One', serif",
+      bodyFont: "'IM Fell English', serif",
       pageLabel: 'The Ship’s Log',
       pageTitle: 'Chart a Course',
       ctaText: 'Weigh Anchor to Enter',
@@ -459,13 +505,38 @@
                band: '#0e1226', glow: 'rgba(212,175,87,0.3)', title: '#e3cf94',
                accent: '#d4af57', seal: 'assets/fleet919.png' },
       flavor: 'A fleet has been charted beyond the edge of the map, and 919 has raised its flag among the stars. Set your course, and the fleet will find you.',
+      headerColor: '#2f3845',
+      bodyColor: '#2f3845',
+      titleFont: "'Orbitron', sans-serif",
+      bodyFont: "'Rajdhani', sans-serif",
       description: "Fleet 919 is 919 Gaming's home base for coordinating play across games and platforms — musters, voice channels, and the crew keeping the lights on between campaigns.",
       url: 'https://f919.org',
       host: 'f919.org'
+    },
+    {
+      kind: 'project',
+      label: 'Dark Matter · The Margin Sector',
+      title: 'Hard Times',
+      cover: 'radial-gradient(ellipse at 30% 20%, #2a2f3a, #15181f 55%, #05060a 100%)',
+      spine: { texture: 'hazard', grad: 'linear-gradient(90deg,#2a2f3a 0%,#15181f 42%,#2a2f3a 88%,#0d0f14 100%)',
+               band: '#15181f', glow: 'rgba(255,176,32,0.3)', title: '#d9a45c',
+               emblem: 'ring', mark: '⚠', accent: '#ffb020', height: 312 },
+      flavor: 'Ten years of civil war have hollowed out an empire, and out on the Margin, six prisoners share a cell block on an asteroid that isn\'t supposed to exist. Guards rotate out. None rotate back.',
+      headerColor: '#4a2610',
+      bodyColor: '#4a2610',
+      titleFont: "'Big Shoulders Stencil', sans-serif",
+      bodyFont: "'Share Tech Mono', monospace",
+      pageLabel: 'The Case File',
+      pageTitle: 'Six Prisoners, One Rock',
+      ctaText: 'Enter the Black Site',
+      description: 'A Dark Matter tabletop campaign set in the lawless Margin sector — equal parts Traveller-inspired frontier and black-site mystery. Follow the briefing, the case files, and the latest word from The Rock.',
+      url: 'https://hardtimes.919gaming.com/',
+      host: 'hardtimes.919gaming.com'
     }
   ];
   /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
-     'whaler' (dark cloth weave, matte, muted), 'nebula' (starfield flecks, for space/sci-fi tomes).
+     'whaler' (dark cloth weave, matte, muted), 'nebula' (starfield flecks, for space/sci-fi tomes),
+     'hazard' (diagonal amber warning stripes, for gritty/industrial/prison tomes).
      New tomes can reuse one of these, or a new .tex-<name> preset can be added alongside them below.
      Available emblems: 'ring' (monogram), 'orchid', 'whale' — or add a new case to emblemSVG().
      spine.seal: set to an image path (e.g. 'assets/fleet919.png') to use that image as the spine's
@@ -473,7 +544,18 @@
      kind: 'journal' (your links list), 'project' (description + "Break the Seal to Enter" wax-seal
      CTA — used for community sites that don't need a distinct badge), or 'link' (description + the
      book's own spine.seal image rendered as a clickable badge — used for linking straight to an
-     existing external site/brand, e.g. Fleet 919). Add a new kind by branching in rightPage(). */
+     existing external site/brand, e.g. Fleet 919). Add a new kind by branching in rightPage().
+
+     Per-book page styling (all optional, sensible defaults if unset):
+       pageTexture: 'aged' -> applies a stained/foxed, dark parchment background (see .tex-page-aged)
+                    instead of the default clean parchment. Add a new .tex-page-<name> preset for more.
+       headerColor: color for chapter-label/chapter-title (existing).
+       bodyColor:   color for flavor/desc/links text — sets the --ink CSS var in scope, so it flows
+                    through to anything using var(--ink) without touching font-family.
+       titleFont:   font-family for chapter-label/chapter-title.
+       bodyFont:    font-family for flavor/desc text (not .links, which keeps its own Cinzel styling).
+       sealSize:    diameter in px for the default circular wax seal (project kind, no sealShape
+                    override). Defaults to 200. */
 
   const STAR = '<svg width="24" height="24" viewBox="0 0 60 60" fill="none"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z" fill="#ecd8a4"/></svg>';
   const SIGIL = '<svg width="96" height="96" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="54" stroke="#c9a96a" stroke-width="2" opacity="0.75"/><circle cx="60" cy="60" r="42" stroke="#c9a96a" stroke-width="1" opacity="0.45"/><path d="M60 12 L67 52 L107 60 L67 68 L60 108 L53 68 L13 60 L53 52 Z" stroke="#ecd8a4" stroke-width="1.6" fill="none"/><circle cx="60" cy="60" r="5" fill="#c9a96a"/></svg>';
@@ -525,20 +607,39 @@
   const book = document.getElementById('book');
   const spread = document.getElementById('spread');
 
+  // per-book style helpers (see field docs above the `books` array)
+  function pageClass(side, b){ return 'page ' + side + (b.pageTexture ? ' tex-page-' + b.pageTexture : ''); }
+  function pageVars(b){ return b.bodyColor ? ' style="--ink:' + b.bodyColor + '"' : ''; }
+  function headerStyle(b){
+    let s = '';
+    if (b.headerColor) s += 'color:' + b.headerColor + ';';
+    if (b.titleFont) s += 'font-family:' + b.titleFont + ';';
+    return s ? ' style="' + s + '"' : '';
+  }
+  function bodyTextStyle(b){ return b.bodyFont ? ' style="font-family:' + b.bodyFont + '"' : ''; }
+
+  // small inline icons for journal links (optional per-link `icon` field). Add a case here for more.
+  function linkIcon(name){
+    if (name === 'discord') return '<svg class="link-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.522 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189Zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>';
+    if (name === 'raven') return '<svg class="link-icon link-icon-raven" viewBox="0 7 24 12" fill="currentColor" aria-hidden="true"><path d="M2 16 C6 9 10 9 12 14 C14 9 18 9 22 16 C18 13.2 14.5 13.8 12 18 C9.5 13.8 6 13.2 2 16 Z"/></svg>';
+    return '';
+  }
+
   function rightPage(b){
+    const hs = headerStyle(b), bts = bodyTextStyle(b);
     if (b.kind === 'journal'){
       const rows = b.links.map(l =>
-        '<a href="'+l.url+'"><span>'+l.name+'</span><span class="arrow">&rarr;</span></a>').join('');
-      return '<div class="page right">' +
-        '<p class="chapter-label">The Fellowship</p>' +
-        '<h3 class="chapter-title sm">Find Me in the Wild</h3>' +
+        '<a href="'+l.url+'"><span>'+linkIcon(l.icon)+l.name+'</span><span class="arrow">&rarr;</span></a>').join('');
+      return '<div class="'+pageClass('right', b)+'"'+pageVars(b)+'>' +
+        '<p class="chapter-label"'+hs+'>The Fellowship</p>' +
+        '<h3 class="chapter-title sm"'+hs+'>Find Me in the Wild</h3>' +
         '<div class="links">'+rows+'</div></div>';
     }
     if (b.kind === 'link'){
-      return '<div class="page right">' +
-        '<p class="chapter-label">The Muster</p>' +
-        '<h3 class="chapter-title sm">Answer the Call</h3>' +
-        '<p class="desc">'+b.description+'</p>' +
+      return '<div class="'+pageClass('right', b)+'"'+pageVars(b)+'>' +
+        '<p class="chapter-label"'+hs+'>The Muster</p>' +
+        '<h3 class="chapter-title sm"'+hs+'>Answer the Call</h3>' +
+        '<p class="desc"'+bts+'>'+b.description+'</p>' +
         '<div class="seal-wrap">' +
           '<a class="badge" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Visit '+b.title+'"><img src="'+b.spine.seal+'" alt="'+b.title+'"/></a>' +
           '<p class="seal-label">Join the Fleet</p>' +
@@ -550,14 +651,14 @@
     // logo/icon instead (like the 'link' kind's badge). pageLabel/pageTitle/ctaText override
     // the default wording per book.
     const sealImg = b.sealImage || 'assets/sandstone.png';
+    const sealSize = b.sealSize || 200;
     const sealMarkup = (b.sealShape === 'badge')
       ? '<a class="badge" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm"><img src="'+sealImg+'" alt="'+b.title+'"/></a>'
-      : '<a class="seal" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm"><img src="'+sealImg+'" width="200" height="200" alt="seal"/></a>';
-    const hc = b.headerColor ? ' style="color:'+b.headerColor+'"' : '';
-    return '<div class="page right">' +
-      '<p class="chapter-label"'+hc+'>'+(b.pageLabel || 'The Tale')+'</p>' +
-      '<h3 class="chapter-title sm"'+hc+'>'+(b.pageTitle || 'Of This Realm')+'</h3>' +
-      '<p class="desc">'+b.description+'</p>' +
+      : '<a class="seal" style="width:'+sealSize+'px;height:'+sealSize+'px" href="'+b.url+'" target="_blank" rel="noopener" aria-label="Enter this realm"><img src="'+sealImg+'" width="'+sealSize+'" height="'+sealSize+'" alt="seal"/></a>';
+    return '<div class="'+pageClass('right', b)+'"'+pageVars(b)+'>' +
+      '<p class="chapter-label"'+hs+'>'+(b.pageLabel || 'The Tale')+'</p>' +
+      '<h3 class="chapter-title sm"'+hs+'>'+(b.pageTitle || 'Of This Realm')+'</h3>' +
+      '<p class="desc"'+bts+'>'+b.description+'</p>' +
       '<div class="seal-wrap">' +
         sealMarkup +
         '<p class="seal-label">'+(b.ctaText || 'Break the Seal to Enter')+'</p>' +
@@ -641,12 +742,12 @@
 
   function openBook(i){
     const b = books[i];
-    const hc = b.headerColor ? ' style="color:'+b.headerColor+'"' : '';
+    const hs = headerStyle(b), bts = bodyTextStyle(b);
     spread.innerHTML =
-      '<div class="page left">' +
-        '<p class="chapter-label"'+hc+'>'+b.label+'</p>' +
-        '<h2 class="chapter-title"'+hc+'>'+b.title+'</h2>' +
-        '<p class="flavor">'+b.flavor+'</p>' +
+      '<div class="'+pageClass('left', b)+'"'+pageVars(b)+'>' +
+        '<p class="chapter-label"'+hs+'>'+b.label+'</p>' +
+        '<h2 class="chapter-title"'+hs+'>'+b.title+'</h2>' +
+        '<p class="flavor"'+bts+'>'+b.flavor+'</p>' +
         (b.leftImage ? '<div class="log-image"><img src="'+b.leftImage+'" alt=""></div>' : '') +
         (b.gallery ? galleryHTML(b.gallery) : '') +
       '</div>' +
