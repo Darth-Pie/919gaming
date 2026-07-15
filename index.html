@@ -267,6 +267,33 @@
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
     -webkit-text-stroke:1px rgba(18,11,3,0.8);
     text-shadow:0 1px 1px rgba(0,0,0,0.65), 0 2px 5px rgba(0,0,0,0.45); }
+
+  /* 'digital' preset: a dark HUD/tablet screen instead of parchment — scanlines + a faint
+     grid instead of paper grain, amber readout headers instead of gold foil. */
+  .tex-page-digital{
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(255,176,32,0.05) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(0deg, rgba(255,176,32,0.05) 0 1px, transparent 1px 46px),
+      radial-gradient(ellipse at 50% 0%, rgba(255,176,32,0.08), transparent 55%),
+      linear-gradient(165deg,#1c2026 0%,#111418 55%,#05070a 100%);
+  }
+  .tex-page-digital.left{ box-shadow:inset -18px 0 30px -20px rgba(0,0,0,0.7), inset 0 0 60px rgba(0,0,0,0.4); }
+  .tex-page-digital.right{ box-shadow:inset 18px 0 30px -20px rgba(0,0,0,0.7), inset 0 0 60px rgba(0,0,0,0.4); }
+  .tex-page-digital .flavor, .tex-page-digital .desc, .tex-page-digital .links a{
+    color:#c7d7de; text-shadow:0 0 8px rgba(120,190,255,0.06); }
+  .tex-page-digital .links a{ border-bottom-color:rgba(255,176,32,0.2); }
+  .tex-page-digital .links a .arrow{ color:#ffb020; }
+  .tex-page-digital .chapter-label, .tex-page-digital .chapter-title{
+    color:#ffb020; text-shadow:0 0 12px rgba(255,176,32,0.45), 0 1px 1px rgba(0,0,0,0.6); }
+  .tex-page-digital .seal-label{ color:#ffb020; }
+  .tex-page-digital .seal-host{ color:rgba(199,215,222,0.55); }
+  .tex-page-digital .badge{
+    background:radial-gradient(ellipse at 50% 40%, rgba(255,176,32,0.1), transparent 70%);
+    box-shadow:0 10px 22px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,176,32,0.3), inset 0 0 20px rgba(255,176,32,0.08); }
+  .tex-page-digital .seal{
+    box-shadow:0 10px 22px rgba(0,0,0,0.5), inset 0 0 0 3px rgba(255,176,32,0.3), inset 0 0 20px rgba(0,0,0,0.6); }
+
   .chapter-label{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.24em;
     text-transform:uppercase; color:var(--ink-soft); margin:0 0 8px; }
   .chapter-title{ font-family:'Cinzel Decorative',serif; font-size:clamp(26px,3.4vw,36px);
@@ -521,9 +548,10 @@
       spine: { texture: 'hazard', grad: 'linear-gradient(90deg,#2a2f3a 0%,#15181f 42%,#2a2f3a 88%,#0d0f14 100%)',
                band: '#15181f', glow: 'rgba(255,176,32,0.3)', title: '#d9a45c',
                emblem: 'ring', mark: '⚠', accent: '#ffb020', height: 312 },
+      sealShape: 'badge',
+      sealImage: 'assets/hardtimes-logo.png',
       flavor: 'Ten years of civil war have hollowed out an empire, and out on the Margin, six prisoners share a cell block on an asteroid that isn\'t supposed to exist. Guards rotate out. None rotate back.',
-      headerColor: '#4a2610',
-      bodyColor: '#4a2610',
+      pageTexture: 'digital',
       titleFont: "'Big Shoulders Stencil', sans-serif",
       bodyFont: "'Share Tech Mono', monospace",
       pageLabel: 'The Case File',
@@ -548,7 +576,9 @@
 
      Per-book page styling (all optional, sensible defaults if unset):
        pageTexture: 'aged' -> applies a stained/foxed, dark parchment background (see .tex-page-aged)
-                    instead of the default clean parchment. Add a new .tex-page-<name> preset for more.
+                    instead of the default clean parchment. 'digital' -> a dark HUD/tablet screen
+                    (scanlines + grid + glowing amber headers, see .tex-page-digital) for tomes that
+                    shouldn't look like paper at all. Add a new .tex-page-<name> preset for more.
        headerColor: color for chapter-label/chapter-title (existing).
        bodyColor:   color for flavor/desc/links text — sets the --ink CSS var in scope, so it flows
                     through to anything using var(--ink) without touching font-family.
