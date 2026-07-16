@@ -31,6 +31,7 @@ export const books = [
              emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.png', height: 308 },
     flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
     gallery: ['assets/orchidheader.png', 'assets/zebulon.png', 'assets/reginald.png'],
+    sealImage: 'assets/waxseal.png',
     sealSize: 160,
     description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
     url: 'https://thebloom.919gaming.com/',
