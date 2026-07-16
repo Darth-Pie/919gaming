@@ -135,7 +135,8 @@
     text-shadow:0 1px 2px rgba(0,0,0,0.85); flex:1; display:flex; align-items:center; padding:8px 0; }
   .spine .emblem{ width:32px; height:32px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.08em; }
+    font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.08em;
+    background-image:url(/assets/goldfoil.png); background-size:cover; background-blend-mode:multiply; }
   .spine .spine-seal{ width:30px; height:30px; border-radius:50%; overflow:hidden;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
     box-shadow:0 2px 5px rgba(0,0,0,0.55), inset 0 0 5px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.35); }
@@ -146,10 +147,9 @@
       inset 4px 0 5px rgba(255,220,150,0.06), inset 0 0 34px rgba(70,14,10,0.28), 0 18px 26px rgba(0,0,0,0.55); }
   .tex-leather::before{ content:""; position:absolute; inset:0; pointer-events:none;
     background:
+      url(/assets/leathergrain.png) 0 0/130px 130px repeat,
       radial-gradient(circle at 30% 15%, rgba(0,0,0,0.38), transparent 50%),
       radial-gradient(circle at 68% 82%, rgba(0,0,0,0.32), transparent 55%),
-      repeating-linear-gradient(115deg, rgba(0,0,0,0.10) 0 1px, transparent 1px 5px),
-      repeating-linear-gradient(25deg, rgba(0,0,0,0.08) 0 1px, transparent 1px 6px),
       linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)) 6px 11px / calc(100% - 12px) 1px no-repeat,
       linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)) 6px calc(100% - 11px) / calc(100% - 12px) 1px no-repeat;
     mix-blend-mode:multiply; opacity:0.9; }
@@ -157,6 +157,7 @@
   .tex-victorian{ box-shadow:inset 0 0 0 2px rgba(0,0,0,0.4), inset -4px 0 8px rgba(0,0,0,0.5),
       inset 4px 0 9px rgba(255,235,180,0.24), 0 18px 26px rgba(0,0,0,0.55), 0 0 0 1px rgba(232,205,130,0.12); }
   .tex-victorian::before{ content:""; position:absolute; inset:6px; pointer-events:none; border-radius:3px 5px 5px 3px;
+    background:url(/assets/clothweave.png) 0 0/110px 110px repeat; mix-blend-mode:multiply; opacity:0.55;
     border:1px solid rgba(232,205,130,0.6); box-shadow:inset 0 0 0 1px rgba(232,205,130,0.2), inset 0 0 16px rgba(232,205,130,0.12); }
   .tex-victorian::after{ content:""; position:absolute; top:3px; left:50%; width:9px; height:9px;
     transform:translateX(-50%) rotate(45deg); pointer-events:none;
@@ -166,8 +167,7 @@
       inset 3px 0 3px rgba(180,200,220,0.05), 0 14px 20px rgba(0,0,0,0.5); }
   .tex-whaler::before{ content:""; position:absolute; inset:0; pointer-events:none;
     background:
-      repeating-linear-gradient(90deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0 1px, transparent 1px 3px),
+      url(/assets/clothweave.png) 0 0/90px 90px repeat,
       radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,0.32) 100%),
       linear-gradient(rgba(195,210,225,0.4),rgba(195,210,225,0.4)) 7px 11px / calc(100% - 14px) 1px no-repeat,
       linear-gradient(rgba(195,210,225,0.4),rgba(195,210,225,0.4)) 7px calc(100% - 11px) / calc(100% - 14px) 1px no-repeat;
@@ -186,7 +186,8 @@
       radial-gradient(circle at 55% 66%, rgba(255,255,255,0.85) 0 1px, transparent 1.5px),
       radial-gradient(circle at 85% 78%, rgba(212,175,87,0.8) 0 1.2px, transparent 1.8px),
       radial-gradient(circle at 30% 90%, rgba(255,255,255,0.7) 0 1px, transparent 1.5px),
-      radial-gradient(ellipse at 50% 40%, rgba(90,70,150,0.28), transparent 60%);
+      radial-gradient(ellipse at 50% 40%, rgba(90,70,150,0.28), transparent 60%),
+      url(/assets/nebula.png) center/cover no-repeat;
     mix-blend-mode:screen; opacity:0.85; }
 
   .tex-hazard{ box-shadow:inset 0 0 0 2px rgba(0,0,0,0.5), inset -4px 0 8px rgba(0,0,0,0.55),
@@ -195,7 +196,8 @@
     background:
       repeating-linear-gradient(135deg, rgba(255,176,32,0.16) 0 6px, transparent 6px 16px),
       radial-gradient(circle at 30% 15%, rgba(0,0,0,0.35), transparent 50%),
-      radial-gradient(circle at 68% 82%, rgba(0,0,0,0.3), transparent 55%);
+      radial-gradient(circle at 68% 82%, rgba(0,0,0,0.3), transparent 55%),
+      url(/assets/hazardmetal.png) 0 0/100px 100px repeat;
     mix-blend-mode:overlay; opacity:0.85; }
 
   .ghost{ width:60px; height:262px; border-radius:4px 6px 6px 4px;
@@ -233,20 +235,15 @@
     border-radius:6px; overflow:hidden; box-shadow:0 44px 90px rgba(0,0,0,0.7), 0 0 0 1px var(--leather); }
   .page{ flex:1 1 50%; padding:38px; overflow-y:auto; color:var(--ink);
     background:radial-gradient(ellipse at 20% 0%, rgba(0,0,0,0.08), transparent 60%),
-      linear-gradient(var(--parchment),var(--parchment-dk)); }
+      url(/assets/parchmentclean.png) center/cover no-repeat; }
   .page.left{ border-right:2px solid rgba(0,0,0,0.25); box-shadow:inset -18px 0 30px -20px rgba(0,0,0,0.5); }
   .page.right{ box-shadow:inset 18px 0 30px -20px rgba(0,0,0,0.5); display:flex; flex-direction:column; }
 
   /* ---- page texture presets (per-book, optional pageTexture field) ---- */
   .tex-page-aged{
     background:
-      radial-gradient(circle at 12% 18%, rgba(35,22,8,0.32), transparent 36%),
-      radial-gradient(circle at 85% 12%, rgba(48,30,12,0.24), transparent 40%),
-      radial-gradient(circle at 28% 88%, rgba(30,18,6,0.3), transparent 38%),
-      radial-gradient(circle at 90% 80%, rgba(45,28,10,0.22), transparent 42%),
       radial-gradient(ellipse at 20% 0%, rgba(0,0,0,0.14), transparent 60%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E"),
-      linear-gradient(#ab8f60,#7d6640);
+      url(/assets/parchmentaged.png) center/cover no-repeat;
   }
   .tex-page-aged.left{ box-shadow:inset -18px 0 30px -20px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.25); }
   .tex-page-aged.right{ box-shadow:inset 18px 0 30px -20px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.25); }
@@ -369,10 +366,20 @@
 
   .seal-wrap{ margin-top:auto; display:flex; flex-direction:column; align-items:center;
     gap:11px; padding-top:12px; }
-  .seal{ width:200px; height:200px; border-radius:50%; display:flex; align-items:center;
+  .seal{ position:relative; width:200px; height:200px; border-radius:50%; display:flex; align-items:center;
     justify-content:center; transition:transform 0.25s ease;
     box-shadow:0 10px 22px rgba(0,0,0,0.4), inset 0 0 16px rgba(0,0,0,0.45); }
   .seal:hover{ transform:scale(1.06); }
+  .seal.wax-tinted{ border-radius:0; box-shadow:none; background:none; overflow:visible; }
+  .wax-tinted-bg{ position:absolute; inset:6%; border-radius:50%;
+    background:var(--seal-tint,#7c1f1f);
+    -webkit-mask-image:url(/assets/waxseal.png); mask-image:url(/assets/waxseal.png);
+    -webkit-mask-size:contain; mask-size:contain;
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+    filter:drop-shadow(0 10px 18px rgba(0,0,0,0.4)); }
+  .wax-tinted-texture{ position:absolute; inset:0; width:100%; height:100%;
+    mix-blend-mode:soft-light; opacity:0.85; pointer-events:none; }
   .badge{ width:220px; height:170px; padding:14px; border-radius:14px; display:flex;
     align-items:center; justify-content:center; transition:transform 0.25s ease;
     background:radial-gradient(ellipse at 50% 40%, rgba(212,175,87,0.12), transparent 70%);
@@ -401,6 +408,13 @@
   .cover-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius:6px;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:30px;
     box-shadow:0 40px 80px rgba(0,0,0,0.6), inset 0 0 0 10px rgba(20,12,6,0.7), inset 0 0 60px rgba(0,0,0,0.5); }
+  .cover-face::before{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; }
+  .cover-face.tex-leather::before{ background:url(/assets/leathergrain.png) 0 0/260px 260px repeat; mix-blend-mode:multiply; opacity:0.55; }
+  .cover-face.tex-victorian::before{ background:url(/assets/clothweave.png) 0 0/220px 220px repeat; mix-blend-mode:multiply; opacity:0.4; }
+  .cover-face.tex-whaler::before{ background:url(/assets/clothweave.png) 0 0/180px 180px repeat; mix-blend-mode:multiply; opacity:0.55; }
+  .cover-face.tex-nebula::before{ background:url(/assets/nebula.png) center/cover no-repeat; mix-blend-mode:screen; opacity:0.6; }
+  .cover-face.tex-hazard::before{ background:url(/assets/hazardmetal.png) 0 0/220px 220px repeat; mix-blend-mode:overlay; opacity:0.6; }
+  .cover-face > *{ position:relative; z-index:1; }
   .cover-title{ font-family:'Cinzel Decorative',serif; font-weight:700;
     font-size:clamp(24px,3.2vw,34px); letter-spacing:0.03em; color:var(--gold-bright);
     text-align:center; margin:0; text-shadow:0 2px 4px rgba(0,0,0,0.6); }

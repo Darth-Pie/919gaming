@@ -41,9 +41,12 @@ export default function RightPage({ book: b }) {
     );
   }
 
-  // 'project': description + an "enter" seal.
-  const sealImg = b.sealImage || 'assets/sandstone.png';
+  // 'project': description + an "enter" seal. No custom sealImage + no badge override
+  // means the tome gets the shared tintable wax seal (colored per-book via spine.accent)
+  // instead of a generic photo.
   const sealSize = b.sealSize || 200;
+  const useTintedWax = !b.sealImage && b.sealShape !== 'badge';
+  const sealImg = b.sealImage || 'assets/sandstone.png';
 
   return (
     <div className={className} style={style}>
@@ -54,6 +57,11 @@ export default function RightPage({ book: b }) {
         {b.sealShape === 'badge' ? (
           <a className="badge" href={b.url} target="_blank" rel="noopener" aria-label="Enter this realm">
             <img src={sealImg} alt={b.title} />
+          </a>
+        ) : useTintedWax ? (
+          <a className="seal wax-tinted" style={{ width: sealSize + 'px', height: sealSize + 'px' }} href={b.url} target="_blank" rel="noopener" aria-label="Enter this realm">
+            <span className="wax-tinted-bg" style={{ '--seal-tint': b.spine.accent || '#7c1f1f' }} />
+            <img className="wax-tinted-texture" src="/assets/waxseal.png" alt="seal" />
           </a>
         ) : (
           <a className="seal" style={{ width: sealSize + 'px', height: sealSize + 'px' }} href={b.url} target="_blank" rel="noopener" aria-label="Enter this realm">

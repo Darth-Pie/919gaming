@@ -42,7 +42,7 @@ export function Emblem({ spine }) {
     );
   }
   return (
-    <span className="emblem" style={{ border: '1.5px solid ' + spine.accent, color: spine.title }}>
+    <span className="emblem" style={{ border: '1.5px solid ' + spine.accent, color: spine.title, backgroundColor: spine.accent }}>
       {spine.mark || ''}
     </span>
   );
