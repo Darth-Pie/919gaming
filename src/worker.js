@@ -77,6 +77,28 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'"
+].join('; ');
+
+function withSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('Content-Security-Policy', CSP);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 // Resolves the caller's session from the single keeper_auth cookie. God
 // status and the Trusted flag are baked into the signed token at login
 // time (read from AUTH_KV then, not re-checked against Discord per request).
@@ -258,183 +280,187 @@ function keepersPage(users, session) {
   `, true);
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
+async function handleRequest(request, env, ctx) {
+  const url = new URL(request.url);
+  const html = { 'content-type': 'text/html;charset=UTF-8', 'cache-control': 'no-store, private' };
 
-    if (url.pathname === '/keepers-secrets/status' && request.method === 'GET') {
-      const session = await getSession(request, env);
-      return new Response(JSON.stringify({ loggedIn: session.loggedIn }), {
-        headers: { 'content-type': 'application/json', 'cache-control': 'no-store, private' }
-      });
+  if (url.pathname === '/keepers-secrets/status' && request.method === 'GET') {
+    const session = await getSession(request, env);
+    return new Response(JSON.stringify({ loggedIn: session.loggedIn }), {
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-store, private' }
+    });
+  }
+
+  if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
+    const existingSession = await getSession(request, env);
+    if (existingSession.loggedIn) {
+      return Response.redirect(url.origin + ADMIN_PATH, 302);
+    }
+    const state = crypto.randomUUID();
+    const authorizeUrl = new URL('https://discord.com/api/oauth2/authorize');
+    authorizeUrl.searchParams.set('client_id', DISCORD_CLIENT_ID);
+    authorizeUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+    authorizeUrl.searchParams.set('response_type', 'code');
+    authorizeUrl.searchParams.set('scope', 'identify guilds.members.read');
+    authorizeUrl.searchParams.set('state', state);
+    const headers = new Headers({ Location: authorizeUrl.toString(), 'Cache-Control': 'no-store, private' });
+    headers.append('Set-Cookie', `${STATE_COOKIE_NAME}=${state}; Path=${STATE_COOKIE_PATH}; Max-Age=300; HttpOnly; Secure; SameSite=Lax`);
+    return new Response(null, { status: 302, headers });
+  }
+
+  if (url.pathname === CALLBACK_PATH && request.method === 'GET') {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const savedState = getCookie(request, STATE_COOKIE_NAME);
+    const clearState = `${STATE_COOKIE_NAME}=; Path=${STATE_COOKIE_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+
+    if (!code || !state || !savedState || state !== savedState) {
+      const headers = new Headers(html);
+      headers.append('Set-Cookie', clearState);
+      return new Response(errorPage('Login Failed', 'That login link expired or was invalid. Please try again.', '/keepers-secrets', 'Try Again'), { status: 400, headers });
     }
 
-    if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
-      const existingSession = await getSession(request, env);
-      if (existingSession.loggedIn) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const state = crypto.randomUUID();
-      const authorizeUrl = new URL('https://discord.com/api/oauth2/authorize');
-      authorizeUrl.searchParams.set('client_id', DISCORD_CLIENT_ID);
-      authorizeUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-      authorizeUrl.searchParams.set('response_type', 'code');
-      authorizeUrl.searchParams.set('scope', 'identify guilds.members.read');
-      authorizeUrl.searchParams.set('state', state);
-      const headers = new Headers({ Location: authorizeUrl.toString(), 'Cache-Control': 'no-store, private' });
-      headers.append('Set-Cookie', `${STATE_COOKIE_NAME}=${state}; Path=${STATE_COOKIE_PATH}; Max-Age=300; HttpOnly; Secure; SameSite=Lax`);
-      return new Response(null, { status: 302, headers });
+    const clientSecret = await env.DISCORD_CLIENT_SECRET.get();
+    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: DISCORD_CLIENT_ID,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: REDIRECT_URI
+      })
+    });
+    if (!tokenRes.ok) {
+      const headers = new Headers(html);
+      headers.append('Set-Cookie', clearState);
+      return new Response(errorPage('Login Failed', 'Discord rejected that login attempt.', '/keepers-secrets', 'Try Again'), { status: 401, headers });
     }
+    const { access_token } = await tokenRes.json();
 
-    if (url.pathname === CALLBACK_PATH && request.method === 'GET') {
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
-      const savedState = getCookie(request, STATE_COOKIE_NAME);
-      const clearState = `${STATE_COOKIE_NAME}=; Path=${STATE_COOKIE_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+    const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    const user = await userRes.json();
+    const isGod = user.id === GOD_DISCORD_ID;
 
-      if (!code || !state || !savedState || state !== savedState) {
-        const headers = new Headers(html);
-        headers.append('Set-Cookie', clearState);
-        return new Response(errorPage('Login Failed', 'That login link expired or was invalid. Please try again.', '/keepers-secrets', 'Try Again'), { status: 400, headers });
-      }
-
-      const clientSecret = await env.DISCORD_CLIENT_SECRET.get();
-      const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: DISCORD_CLIENT_ID,
-          client_secret: clientSecret,
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: REDIRECT_URI
-        })
-      });
-      if (!tokenRes.ok) {
-        const headers = new Headers(html);
-        headers.append('Set-Cookie', clearState);
-        return new Response(errorPage('Login Failed', 'Discord rejected that login attempt.', '/keepers-secrets', 'Try Again'), { status: 401, headers });
-      }
-      const { access_token } = await tokenRes.json();
-
-      const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+    // God bypasses guild/role checks entirely -- so changing the
+    // configured guild/role for testing can never lock God out.
+    if (!isGod) {
+      const config = await getConfig(env);
+      const memberRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/${config.guildId}/member`, {
         headers: { Authorization: `Bearer ${access_token}` }
       });
-      const user = await userRes.json();
-      const isGod = user.id === GOD_DISCORD_ID;
-
-      // God bypasses guild/role checks entirely -- so changing the
-      // configured guild/role for testing can never lock God out.
-      if (!isGod) {
-        const config = await getConfig(env);
-        const memberRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/${config.guildId}/member`, {
-          headers: { Authorization: `Bearer ${access_token}` }
-        });
-        if (!memberRes.ok) {
-          const headers = new Headers(html);
-          headers.append('Set-Cookie', clearState);
-          return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
-        }
-        const member = await memberRes.json();
-        const roles = member.roles || [];
-        if (!roles.includes(config.loginRoleId)) {
-          const headers = new Headers(html);
-          headers.append('Set-Cookie', clearState);
-          return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
-        }
+      if (!memberRes.ok) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
       }
-
-      // Trust is our own data, not Discord's: preserve whatever the God
-      // account has already granted this Discord ID, defaulting to false
-      // for a first-time login.
-      const existing = await getKeeper(env, user.id);
-      const trusted = isGod || (existing ? !!existing.trusted : false);
-
-      await env.AUTH_KV.put('discordUser:' + user.id, JSON.stringify({
-        discordId: user.id,
-        username: user.username,
-        isGod,
-        trusted,
-        lastLogin: Date.now()
-      }));
-
-      const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
-      const authSecret = await env.AUTH_SECRET.get();
-      const token = await signToken({ id: user.id, username: user.username, isGod, trusted, exp }, authSecret);
-      const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
-      headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
-      headers.append('Set-Cookie', clearState);
-      return new Response(null, { status: 302, headers });
+      const member = await memberRes.json();
+      const roles = member.roles || [];
+      if (!roles.includes(config.loginRoleId)) {
+        const headers = new Headers(html);
+        headers.append('Set-Cookie', clearState);
+        return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
+      }
     }
 
-    if (url.pathname === ADMIN_PATH && request.method === 'GET') {
-      const session = await getSession(request, env);
-      if (!session.loggedIn) {
-        return Response.redirect(url.origin + '/keepers-secrets', 302);
-      }
-      return new Response(adminLanding(session), { headers: html });
-    }
+    // Trust is our own data, not Discord's: preserve whatever the God
+    // account has already granted this Discord ID, defaulting to false
+    // for a first-time login.
+    const existing = await getKeeper(env, user.id);
+    const trusted = isGod || (existing ? !!existing.trusted : false);
 
-    if (url.pathname === ADMIN_PATH + '/logout') {
-      const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
-      headers.append('Set-Cookie', `${COOKIE_NAME}=; Domain=919gaming.com; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
-      return new Response(null, { status: 302, headers });
-    }
+    await env.AUTH_KV.put('discordUser:' + user.id, JSON.stringify({
+      discordId: user.id,
+      username: user.username,
+      isGod,
+      trusted,
+      lastLogin: Date.now()
+    }));
 
-    if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
-      const session = await getSession(request, env);
-      if (!session.isGod && !session.trusted) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const users = await listKeepers(env);
-      return new Response(keepersPage(users, session), { headers: html });
-    }
+    const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
+    const authSecret = await env.AUTH_SECRET.get();
+    const token = await signToken({ id: user.id, username: user.username, isGod, trusted, exp }, authSecret);
+    const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
+    headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
+    headers.append('Set-Cookie', clearState);
+    return new Response(null, { status: 302, headers });
+  }
 
-    if (url.pathname === ADMIN_PATH + '/config' && request.method === 'GET') {
-      const session = await getSession(request, env);
-      if (!session.isGod) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const config = await getConfig(env);
-      const msg = url.searchParams.get('ok') === '1' ? 'Saved.' : null;
-      return new Response(configPage(config, msg), { headers: html });
+  if (url.pathname === ADMIN_PATH && request.method === 'GET') {
+    const session = await getSession(request, env);
+    if (!session.loggedIn) {
+      return Response.redirect(url.origin + '/keepers-secrets', 302);
     }
+    return new Response(adminLanding(session), { headers: html });
+  }
 
-    if (url.pathname === ADMIN_PATH + '/config' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const guildId = (form.get('guildId') || '').toString().trim();
-      const loginRoleId = (form.get('loginRoleId') || '').toString().trim();
-      if (!guildId || !loginRoleId) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/config', 302);
-      }
-      await env.AUTH_KV.put(CONFIG_KV_KEY, JSON.stringify({ guildId, loginRoleId }));
-      return Response.redirect(url.origin + ADMIN_PATH + '/config?ok=1', 302);
+  if (url.pathname === ADMIN_PATH + '/logout') {
+    const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
+    headers.append('Set-Cookie', `${COOKIE_NAME}=; Domain=919gaming.com; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+    return new Response(null, { status: 302, headers });
+  }
+
+  if (url.pathname === ADMIN_PATH + '/keepers' && request.method === 'GET') {
+    const session = await getSession(request, env);
+    if (!session.isGod && !session.trusted) {
+      return Response.redirect(url.origin + ADMIN_PATH, 302);
     }
+    const users = await listKeepers(env);
+    return new Response(keepersPage(users, session), { headers: html });
+  }
 
-    if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
-      const session = await getSession(request, env);
-      if (!session.isGod) {
-        return Response.redirect(url.origin + ADMIN_PATH, 302);
-      }
-      const form = await request.formData();
-      const discordId = (form.get('discordId') || '').toString();
-      if (discordId === GOD_DISCORD_ID) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
-      }
-      const existing = await getKeeper(env, discordId);
-      if (!existing) {
-        return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
-      }
-      existing.trusted = form.has('trusted');
-      await env.AUTH_KV.put('discordUser:' + discordId, JSON.stringify(existing));
+  if (url.pathname === ADMIN_PATH + '/config' && request.method === 'GET') {
+    const session = await getSession(request, env);
+    if (!session.isGod) {
+      return Response.redirect(url.origin + ADMIN_PATH, 302);
+    }
+    const config = await getConfig(env);
+    const msg = url.searchParams.get('ok') === '1' ? 'Saved.' : null;
+    return new Response(configPage(config, msg), { headers: html });
+  }
+
+  if (url.pathname === ADMIN_PATH + '/config' && request.method === 'POST') {
+    const session = await getSession(request, env);
+    if (!session.isGod) {
+      return Response.redirect(url.origin + ADMIN_PATH, 302);
+    }
+    const form = await request.formData();
+    const guildId = (form.get('guildId') || '').toString().trim();
+    const loginRoleId = (form.get('loginRoleId') || '').toString().trim();
+    if (!guildId || !loginRoleId) {
+      return Response.redirect(url.origin + ADMIN_PATH + '/config', 302);
+    }
+    await env.AUTH_KV.put(CONFIG_KV_KEY, JSON.stringify({ guildId, loginRoleId }));
+    return Response.redirect(url.origin + ADMIN_PATH + '/config?ok=1', 302);
+  }
+
+  if (url.pathname === ADMIN_PATH + '/permissions' && request.method === 'POST') {
+    const session = await getSession(request, env);
+    if (!session.isGod) {
+      return Response.redirect(url.origin + ADMIN_PATH, 302);
+    }
+    const form = await request.formData();
+    const discordId = (form.get('discordId') || '').toString();
+    if (discordId === GOD_DISCORD_ID) {
       return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
     }
+    const existing = await getKeeper(env, discordId);
+    if (!existing) {
+      return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
+    }
+    existing.trusted = form.has('trusted');
+    await env.AUTH_KV.put('discordUser:' + discordId, JSON.stringify(existing));
+    return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
+  }
 
-    return env.ASSETS.fetch(request);
+  return env.ASSETS.fetch(request);
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    return withSecurityHeaders(await handleRequest(request, env, ctx));
   }
 };

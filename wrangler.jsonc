@@ -8,7 +8,11 @@
   },
   "assets": {
     "directory": "dist",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/keepers-secrets",
+      "/keepers-secrets/*"
+    ]
   },
   "compatibility_flags": [
     "nodejs_compat"
