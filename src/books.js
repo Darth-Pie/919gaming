@@ -28,10 +28,10 @@ export const books = [
     cover: 'radial-gradient(ellipse at 30% 20%, #43512f, #212b1c 55%, #0f150b 100%)',
     spine: { texture: 'victorian', grad: 'linear-gradient(90deg,#3c2b12 0%,#1c1408 42%,#3c2b12 88%,#130d05 100%)',
              band: '#1c1408', glow: 'rgba(240,216,150,0.4)', title: '#f5e6b8',
-             emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.png', height: 308 },
+             emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.webp', height: 308 },
     flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
-    gallery: ['assets/orchidheader.png', 'assets/zebulon.png', 'assets/reginald.png'],
-    sealImage: 'assets/sandstone.png',
+    gallery: ['assets/orchidheader.webp', 'assets/zebulon.webp', 'assets/reginald.webp'],
+    sealImage: 'assets/sandstone.webp',
     sealSize: 160,
     description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
     url: 'https://thebloom.919gaming.com/',
@@ -46,9 +46,9 @@ export const books = [
              band: '#0a121c', glow: 'rgba(120,150,180,0.22)', title: '#a8bccc',
              emblem: 'whale', accent: '#8fa8bd', height: 316 },
     flavor: 'A storm gathers on the horizon of a fallen world, and riders are answering its call. The muster has only just begun.',
-    leftImage: 'assets/frigate.png',
+    leftImage: 'assets/frigate.webp',
     sealShape: 'badge',
-    sealImage: 'assets/wave.png',
+    sealImage: 'assets/wave.webp',
     headerColor: '#1c3f5c',
     titleFont: "'Pirata One', serif",
     bodyFont: "'IM Fell English', serif",
@@ -66,7 +66,7 @@ export const books = [
     cover: 'radial-gradient(ellipse at 30% 20%, #2a3568, #141a38 55%, #05060f 100%)',
     spine: { texture: 'nebula', grad: 'linear-gradient(90deg,#1c2340 0%,#0e1226 42%,#1c2340 88%,#080a16 100%)',
              band: '#0e1226', glow: 'rgba(212,175,87,0.3)', title: '#e3cf94',
-             accent: '#d4af57', seal: 'assets/fleet919.png' },
+             accent: '#d4af57', seal: 'assets/fleet919.webp' },
     flavor: 'A fleet has been charted beyond the edge of the map, and 919 has raised its flag among the stars. Set your course, and the fleet will find you.',
     headerColor: '#2f3845',
     bodyColor: '#2f3845',
@@ -85,7 +85,7 @@ export const books = [
              band: '#15181f', glow: 'rgba(255,176,32,0.3)', title: '#d9a45c',
              emblem: 'ring', mark: '⚠', accent: '#ffb020', height: 312 },
     sealShape: 'badge',
-    sealImage: 'assets/hardtimes-logo.png',
+    sealImage: 'assets/hardtimes-logo.webp',
     flavor: 'Ten years of civil war have hollowed out an empire, and out on the Margin, six prisoners share a cell block on an asteroid that isn\'t supposed to exist. Guards rotate out. None rotate back.',
     pageTexture: 'digital',
     titleFont: "'Big Shoulders Stencil', sans-serif",
@@ -103,7 +103,7 @@ export const books = [
    'hazard' (diagonal amber warning stripes, for gritty/industrial/prison tomes).
    New tomes can reuse one of these, or a new .tex-<name> preset can be added alongside them in index.html.
    Available emblems: 'ring' (monogram), 'orchid', 'whale' — or add a new case to <Emblem/> in icons.jsx.
-   spine.seal: set to an image path (e.g. 'assets/fleet919.png') to use that image as the spine's
+   spine.seal: set to an image path (e.g. 'assets/fleet919.webp') to use that image as the spine's
    bottom emblem instead of <Emblem/> — used for a wax seal or a community's own logo alike.
    kind: 'journal' (your links list), 'project' (description + "Break the Seal to Enter" wax-seal
    CTA — used for community sites that don't need a distinct badge), or 'link' (description + the

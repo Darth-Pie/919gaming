@@ -46,7 +46,7 @@ export default function RightPage({ book: b }) {
   // instead of a generic photo.
   const sealSize = b.sealSize || 200;
   const useTintedWax = !b.sealImage && b.sealShape !== 'badge';
-  const sealImg = b.sealImage || 'assets/sandstone.png';
+  const sealImg = b.sealImage || 'assets/sandstone.webp';
 
   return (
     <div className={className} style={style}>
@@ -61,7 +61,7 @@ export default function RightPage({ book: b }) {
         ) : useTintedWax ? (
           <a className="seal wax-tinted" style={{ width: sealSize + 'px', height: sealSize + 'px' }} href={b.url} target="_blank" rel="noopener" aria-label="Enter this realm">
             <span className="wax-tinted-bg" style={{ '--seal-tint': b.spine.accent || '#7c1f1f' }} />
-            <img className="wax-tinted-texture" src="/assets/waxseal.png" alt="seal" />
+            <img className="wax-tinted-texture" src="/assets/waxseal.webp" alt="seal" />
           </a>
         ) : (
           <a className="seal" style={{ width: sealSize + 'px', height: sealSize + 'px' }} href={b.url} target="_blank" rel="noopener" aria-label="Enter this realm">
