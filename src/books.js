@@ -56,8 +56,8 @@ export const books = [
     pageTitle: 'Chart a Course',
     ctaText: 'Weigh Anchor to Enter',
     description: 'A multi-game gaming community forming around the MMORPG Pantheon: Rise of the Fallen. Much is yet unwritten, but the banner is raised and the ranks are opening.',
-    url: 'https://squallriders.919gaming.com/',
-    host: 'squallriders.919gaming.com'
+    url: 'https://squallriders.com/',
+    host: 'squallriders.com'
   },
   {
     kind: 'link',
