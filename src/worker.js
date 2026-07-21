@@ -17,6 +17,7 @@ const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
 const STATE_COOKIE_NAME = 'discord_oauth_state';
+const RETURN_COOKIE_NAME = 'discord_oauth_return';
 const STATE_COOKIE_PATH = '/keepers-secrets';
 const ADMIN_PATH = '/keepers-secrets/admin';
 const CALLBACK_PATH = '/keepers-secrets/callback';
@@ -75,6 +76,19 @@ function getCookie(request, name) {
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Lets a caller (e.g. thebloom's "Keeper Login" link) say where to land
+// after Discord OAuth completes, without opening an open-redirect: only
+// https URLs on 919gaming.com or one of its subdomains are honored.
+function isAllowedReturnTo(raw) {
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && (u.hostname === '919gaming.com' || u.hostname.endsWith('.919gaming.com'));
+  } catch (e) {
+    return false;
+  }
 }
 
 const CSP = [
@@ -292,9 +306,10 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (url.pathname === '/keepers-secrets' && request.method === 'GET') {
+    const returnTo = isAllowedReturnTo(url.searchParams.get('return_to')) ? url.searchParams.get('return_to') : null;
     const existingSession = await getSession(request, env);
     if (existingSession.loggedIn) {
-      return Response.redirect(url.origin + ADMIN_PATH, 302);
+      return Response.redirect(returnTo || (url.origin + ADMIN_PATH), 302);
     }
     const state = crypto.randomUUID();
     const authorizeUrl = new URL('https://discord.com/api/oauth2/authorize');
@@ -305,6 +320,9 @@ async function handleRequest(request, env, ctx) {
     authorizeUrl.searchParams.set('state', state);
     const headers = new Headers({ Location: authorizeUrl.toString(), 'Cache-Control': 'no-store, private' });
     headers.append('Set-Cookie', `${STATE_COOKIE_NAME}=${state}; Path=${STATE_COOKIE_PATH}; Max-Age=300; HttpOnly; Secure; SameSite=Lax`);
+    if (returnTo) {
+      headers.append('Set-Cookie', `${RETURN_COOKIE_NAME}=${encodeURIComponent(returnTo)}; Path=${STATE_COOKIE_PATH}; Max-Age=300; HttpOnly; Secure; SameSite=Lax`);
+    }
     return new Response(null, { status: 302, headers });
   }
 
@@ -312,11 +330,15 @@ async function handleRequest(request, env, ctx) {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     const savedState = getCookie(request, STATE_COOKIE_NAME);
+    const savedReturnRaw = getCookie(request, RETURN_COOKIE_NAME);
+    const savedReturn = savedReturnRaw ? decodeURIComponent(savedReturnRaw) : null;
     const clearState = `${STATE_COOKIE_NAME}=; Path=${STATE_COOKIE_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+    const clearReturn = `${RETURN_COOKIE_NAME}=; Path=${STATE_COOKIE_PATH}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 
     if (!code || !state || !savedState || state !== savedState) {
       const headers = new Headers(html);
       headers.append('Set-Cookie', clearState);
+      headers.append('Set-Cookie', clearReturn);
       return new Response(errorPage('Login Failed', 'That login link expired or was invalid. Please try again.', '/keepers-secrets', 'Try Again'), { status: 400, headers });
     }
 
@@ -335,6 +357,7 @@ async function handleRequest(request, env, ctx) {
     if (!tokenRes.ok) {
       const headers = new Headers(html);
       headers.append('Set-Cookie', clearState);
+      headers.append('Set-Cookie', clearReturn);
       return new Response(errorPage('Login Failed', 'Discord rejected that login attempt.', '/keepers-secrets', 'Try Again'), { status: 401, headers });
     }
     const { access_token } = await tokenRes.json();
@@ -355,6 +378,7 @@ async function handleRequest(request, env, ctx) {
       if (!memberRes.ok) {
         const headers = new Headers(html);
         headers.append('Set-Cookie', clearState);
+        headers.append('Set-Cookie', clearReturn);
         return new Response(errorPage('Not a Member', 'You must be a member of the Discord server to log in.', SITE_URL, 'Back to Site'), { status: 403, headers });
       }
       const member = await memberRes.json();
@@ -362,6 +386,7 @@ async function handleRequest(request, env, ctx) {
       if (!roles.includes(config.loginRoleId)) {
         const headers = new Headers(html);
         headers.append('Set-Cookie', clearState);
+        headers.append('Set-Cookie', clearReturn);
         return new Response(errorPage('Access Denied', "You don't have the role required to log in here.", SITE_URL, 'Back to Site'), { status: 403, headers });
       }
     }
@@ -380,12 +405,18 @@ async function handleRequest(request, env, ctx) {
       lastLogin: Date.now()
     }));
 
+    // Redirect back to wherever the login was initiated from (e.g.
+    // thebloom's keeper.html), re-validated in case the cookie was
+    // tampered with -- falls back to the 919gaming.com homepage.
+    const destination = isAllowedReturnTo(savedReturn) ? savedReturn : SITE_URL;
+
     const exp = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE;
     const authSecret = await env.AUTH_SECRET.get();
     const token = await signToken({ id: user.id, username: user.username, isGod, trusted, exp }, authSecret);
-    const headers = new Headers({ Location: SITE_URL, 'Cache-Control': 'no-store, private' });
+    const headers = new Headers({ Location: destination, 'Cache-Control': 'no-store, private' });
     headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Domain=919gaming.com; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
     headers.append('Set-Cookie', clearState);
+    headers.append('Set-Cookie', clearReturn);
     return new Response(null, { status: 302, headers });
   }
 
