@@ -38,11 +38,22 @@ const CLIPS = [
  * effect works by making you doubt you saw it, and a wall of confident faces
  * stops being unsettling very quickly. */
 /* Opacities run high because soft-light is a gentle blend over a wall this
- * dark -- these are nothing like the values screen blending wanted. */
+ * dark -- these are nothing like the values screen blending wanted.
+ *
+ * Blur is for hiding compression and upscaling, and that is all it is for. It
+ * used to run to 10px on the commonest tier, on the theory that blurrier meant
+ * more missable; what it actually reads as is a thick, diffusing wall, which is
+ * the opposite of something pressing through taut fabric. Subtlety comes from
+ * opacity. Keep these low enough that the relief the renderer works so hard to
+ * resolve still arrives on screen. */
+/* The floor matters more than the ceiling here. The faintest tier is also the
+ * commonest, so where it lands is what the wall looks like most of the time --
+ * and down at 0.32 it was a stain you had to already know about. The tiers
+ * still read as three distinct strengths, they just all press in now. */
 const TIERS = [
-  { weight: 4, opacity: [0.32, 0.48], blur: [7, 10], height: [22, 30] },
-  { weight: 4, opacity: [0.55, 0.75], blur: [3, 5.5], height: [26, 36] },
-  { weight: 2, opacity: [0.85, 1.00], blur: [1, 2.5], height: [32, 44] },
+  { weight: 4, opacity: [0.50, 0.64], blur: [3, 5], height: [22, 30] },
+  { weight: 4, opacity: [0.68, 0.84], blur: [2, 3.5], height: [26, 36] },
+  { weight: 2, opacity: [0.90, 1.00], blur: [0.6, 1.6], height: [32, 44] },
 ];
 
 const KEEP_OUT = ['.masthead', '.top-nav', '.shelf-wrap'];
@@ -64,9 +75,14 @@ const BLEED = 0.35;
  * page content. The mask would hide it anyway; better to skip and try later. */
 const MAX_COVERAGE = 0.6;
 
-const SPAWN_MIN = 6000;
-const SPAWN_MAX = 12000;
-const MAX_LIVE = 3;
+const SPAWN_MIN = 3000;
+const SPAWN_MAX = 7000;
+
+/* An apparition is alive for about 8s -- a 6s clip plus the fade either side --
+ * so at this interval one to two are typically on the wall at once. The cap is
+ * a burst limiter, and it has to sit clear of that average or it stops being a
+ * limiter and quietly becomes the spawn rate. */
+const MAX_LIVE = 4;
 const PLACE_ATTEMPTS = 40;
 
 const rand = ([lo, hi]) => lo + Math.random() * (hi - lo);
@@ -256,7 +272,7 @@ export function startWallApparitions() {
 
   // Nothing in the first stretch: the page should look ordinary long enough for
   // the first apparition to be a surprise rather than part of the loading.
-  timer = setTimeout(schedule, 3500);
+  timer = setTimeout(schedule, 2500);
   window.addEventListener('pagehide', () => clearTimeout(timer));
 
   // Throttled to a frame: resize fires continuously while a window is dragged,

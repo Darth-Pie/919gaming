@@ -3,9 +3,10 @@ Generates the "something is behind the wallpaper" clips for 919gaming.com.
 
 Heads and hands are built and animated procedurally in Blender (no external
 assets), pressing forward through the plane of the wall. What comes out is a
-grayscale clip where flat wall renders pure black and anything pushing through
-catches light -- which is what lets the clips composite onto the page with
-mix-blend-mode:screen and no alpha channel.
+grayscale clip of *signed relief*: flat wall renders exactly neutral grey, and
+anything pushing through lights or shades it -- which is what lets the clips
+composite onto the page with mix-blend-mode:soft-light and no alpha channel.
+See shade() for why it has to be signed rather than simply bright.
 
 
 HOW THE FABRIC IS DONE, AND WHY NOT WITH CLOTH
@@ -24,15 +25,17 @@ Viewed through an orthographic camera this effect is just a height field, so it
 is solved as one. Blender renders the colliders' protrusion past the wall plane;
 numpy then relaxes a membrane over that height field:
 
-    repeat:  blur(h)                 -- fabric resists sharp curvature
+    repeat:  h = blur(h) - sag       -- resists curvature; pressure pushes back
              h = max(h, obstacle)    -- fabric cannot pass through what it covers
 
-which is the standard minimal-surface-over-an-obstacle relaxation. The blur
-spreads the bulge outward into a natural drape and webs across the gaps between
-fingers; the max step snaps the covered areas back so features stay crisp.
-Because nothing is pinned, it decays to flat on its own -- no tent, no wrinkles,
-and true black everywhere nothing is pushing. It also runs in seconds per clip
-rather than minutes.
+which is a minimal-surface-over-an-obstacle relaxation with a pressure term. The
+blur is the sheet resisting curvature and is what spreads a bulge outward into a
+drape; the sag is what makes the sheet *thin*, pushing unsupported fabric back
+down so it sinks into an open mouth and into the webbing between fingers instead
+of tenting over them; the max step snaps covered areas back so features stay
+crisp. Because nothing is pinned, it decays to flat on its own -- no tent, no
+wrinkles, and true flat everywhere nothing is pushing. It also runs in seconds
+per clip rather than minutes.
 
 Usage:
   blender -b -P wall_apparitions.py -- --clip face-a --out DIR
@@ -235,11 +238,28 @@ def capsule(name, radius, length, mat, segments=24, section=(1.0, 1.0)):
     return obj
 
 
-def ellipsoid(name, half_extents, mat, segments=48):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=segments // 2, radius=1.0)
+def build_palm(name, side, mat, segments=64):
+    """The palm: an ellipsoid pushed around with gaussian bumps, like the head.
+
+    A bare ellipsoid was fine while the membrane was thick enough to smooth it
+    away, and reads as a mitten now that it is not. The knuckle ridge is what
+    actually sells it -- four bumps in a row at the base of the fingers is the
+    single most recognisable thing about the back of a hand.
+    """
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=segments, ring_count=segments // 2, radius=1.0
+    )
     obj = bpy.context.object
-    obj.name = name
-    obj.data.transform(Matrix.Diagonal((*half_extents, 1.0)).to_4x4())
+    obj.name = f"{name}_palm"
+    obj.data.transform(Matrix.Diagonal((*PALM, 1.0)).to_4x4())
+
+    for v in obj.data.vertices:
+        front = max(0.0, -v.co.y / PALM[1]) ** 0.7
+        d = 0.0
+        for bx, bz, sx, sz, amp in PALM_BUMPS:
+            d += amp * gauss(v.co.x - bx * side, v.co.z - bz, sx, sz)
+        v.co.y -= d * front
+
     smooth_surface(obj)
     obj.data.materials.append(mat)
     return obj
@@ -262,13 +282,36 @@ def smooth_surface(obj):
 
 PALM = (0.33, 0.105, 0.36)  # half-extents: about as wide as tall, and shallow
 
+# Relief on the palm, mirrored with the hand: x, z, gaussian radii, height.
+# Deliberately restrained -- the palm is the shallowest thing in the clip, so
+# these compete with the whole hand for the little depth there is.
+PALM_BUMPS = [
+    # The knuckle ridge carries the finger roots, which sit proud of the palm so
+    # the membrane does not catch in a step at the base of each digit. Flatten
+    # these and the outer fingers start reading as detached from the hand.
+    (-0.215, 0.25, 0.090, 0.11, 0.058),   # knuckles, under each finger
+    (-0.072, 0.27, 0.090, 0.11, 0.058),
+    (0.072, 0.26, 0.090, 0.11, 0.056),
+    (0.215, 0.23, 0.085, 0.10, 0.055),
+    (0.20, -0.12, 0.15, 0.22, 0.038),     # thenar mound, behind the thumb
+    (-0.23, -0.16, 0.12, 0.20, 0.030),    # hypothenar mound, the pinky heel
+    (0.0, -0.04, 0.17, 0.17, -0.032),     # the cup between the two
+]
+
 # knuckle x, finger length, base splay (deg). Lengths are ~0.8x palm height, so
 # the visible part of each finger is roughly as long as the palm, as on a hand.
+#
+# Splay is generous. Adjacent knuckles are 0.143 apart and a finger is 0.123
+# wide, so at the base they very nearly touch -- as they do on a hand. All the
+# separation has to be won along the length, and that is what the splay buys:
+# by the middle phalanx the gaps have opened to several times the membrane's
+# smoothing scale, which is the point at which it stops bridging them and starts
+# sinking in between.
 FINGERS = [
-    (-0.215, 0.60, -10.0),  # index
-    (-0.072, 0.66, -3.0),   # middle
-    (0.072, 0.62, 3.0),     # ring
-    (0.215, 0.50, 11.0),    # pinky
+    (-0.215, 0.66, -17.0),  # index
+    (-0.072, 0.73, -6.0),   # middle
+    (0.072, 0.68, 6.0),     # ring
+    (0.215, 0.55, 18.0),    # pinky
 ]
 
 # Per phalanx: fraction of total length, fraction of base radius, rest flexion.
@@ -283,10 +326,20 @@ FINGERS = [
 # hard (0.86, 0.72) with less overlap separated the phalanges into distinct
 # pods, which reads as an insect leg -- a knuckle is a crease, not a joint in
 # an exoskeleton.
+#
+# PHALANX_OVERLAP is where along its parent a segment *starts*, so smaller means
+# more overlap. It had to come down once the membrane got thin: a thick sheet
+# tented straight over the gap between two segments, and a thin one drops into
+# it and draws a hard black line at every joint.
 PHALANGES = [(0.42, 1.00, 0.04), (0.33, 0.93, 0.08), (0.25, 0.85, 0.06)]
-PHALANX_OVERLAP = 0.78
-FINGER_RADIUS = 0.068
-FINGER_SECTION = (1.18, 0.82)  # wider than deep
+PHALANX_OVERLAP = 0.68
+
+# Fingers were 0.160 wide across knuckles 0.143 apart -- that is, they
+# intersected each other, and no amount of work on the membrane was ever going
+# to find a gap between them that did not exist. 0.055 * 1.12 * 2 = 0.123 leaves
+# a real one.
+FINGER_RADIUS = 0.055
+FINGER_SECTION = (1.12, 0.86)  # wider than deep
 
 
 def _chain(name, base, radius, length, phalanges, mat, section):
@@ -319,13 +372,16 @@ def build_hand(name, scale, mat, mirror=False):
     Returns (palm, chains) where each chain is one digit's segments, base first.
     """
     side = -1 if mirror else 1
-    palm = ellipsoid(f"{name}_palm", PALM, mat)
+    palm = build_palm(name, side, mat)
     chains = []
 
     for i, (kx, length, splay) in enumerate(FINGERS):
         root = bpy.data.objects.new(f"{name}_k{i}", None)  # knuckle pivot
         bpy.context.collection.objects.link(root)
-        root.location = (kx * side, -0.025, 0.24)
+        # Proud of the knuckle ridge, not level with it: rooted flush, the ridge
+        # stands further forward than the finger base and the membrane drops
+        # into the step between them, drawing a dark band across the knuckles.
+        root.location = (kx * side, -0.062, 0.22)
         root.rotation_euler = (0.0, math.radians(splay * side), 0.0)
         root.parent = palm
         root.matrix_parent_inverse = Matrix.Identity(4)
@@ -340,8 +396,8 @@ def build_hand(name, scale, mat, mirror=False):
     thumb.rotation_euler = (0.0, math.radians(58 * side), 0.0)
     thumb.parent = palm
     thumb.matrix_parent_inverse = Matrix.Identity(4)
-    chains.append([thumb] + _chain(f"{name}_thumb", thumb, 0.079, 0.44,
-                                   PHALANGES[:2], mat, (1.12, 0.88)))
+    chains.append([thumb] + _chain(f"{name}_thumb", thumb, 0.064, 0.48,
+                                   PHALANGES[:2], mat, (1.10, 0.90)))
 
     palm.scale = (scale, scale, scale)
     return palm, chains
@@ -380,13 +436,7 @@ def press_curve(t):
     return 1.0 - (u * u * (3 - 2 * u))
 
 
-def front_extent(obj):
-    """How far the foremost point of obj *and its children* sits ahead of its origin.
-
-    Children matter: with flexed fingers the fingertips reach well past the palm,
-    so measuring the palm alone would compute a press depth from the wrong
-    surface and drive the whole hand through the wall to get the palm in.
-    """
+def _front_extent_now(obj):
     deps = bpy.context.evaluated_depsgraph_get()
     origin_y = obj.matrix_world.translation.y
     front = origin_y
@@ -400,6 +450,35 @@ def front_extent(obj):
             front = min(front, min((o.matrix_world @ v.co).y for v in mesh.vertices))
         ev.to_mesh_clear()
     return origin_y - front
+
+
+def front_extent(obj, samples=9):
+    """How far the foremost point of obj *and its children* sits ahead of its origin.
+
+    Children matter: with flexed fingers the fingertips reach well past the palm,
+    so measuring the palm alone would compute a press depth from the wrong
+    surface and drive the whole hand through the wall to get the palm in.
+
+    Averaged over the clip rather than measured in one pose, because the digits
+    are already keyframed by the time this runs and a curling finger reaches a
+    long way further forward than a straight one -- over the range a grasp
+    covers, further than the whole press depth. Measuring the rest pose alone
+    buries the fingertips past the depth the height encoding can represent;
+    measuring the deepest pose leaves the slack fingers hanging behind the wall,
+    where they vanish. The mean puts the press where the hand spends its time
+    and lets the digits work in and out either side of it.
+
+    For a head this is a no-op: nothing is keyframed yet when it is called, so
+    every sample returns the same number.
+    """
+    scene = bpy.context.scene
+    restore = scene.frame_current
+    total = 0.0
+    for i in range(samples):
+        scene.frame_set(1 + round(i * (FRAMES - 1) / (samples - 1)))
+        total += _front_extent_now(obj)
+    scene.frame_set(restore)
+    return total / samples
 
 
 def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2):
@@ -428,25 +507,72 @@ def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2):
         obj.keyframe_insert("rotation_euler", frame=frame)
 
 
-def animate_fingers(chains, seed, step=2):
-    """Independent flex and splay per digit, so the hand never looks like a prop.
+# Flex swing per joint, in radians, knuckle outward, and how far a knuckle works
+# in and out along Y. Both are bounded by the press depth: whatever a digit adds
+# to its forward reach at full clutch it has to give back at full slack, and a
+# digit that gives back more than the press has lifted off the wall and
+# disappeared.
+FINGER_CURL = (0.30, 0.34, 0.24)
+FINGER_DIG = 0.13
+FINGER_LAG = 0.07  # fraction of the clip each joint trails the one before it
 
-    Every joint moves, not just the knuckle, and each on its own noise phase --
-    a digit whose segments all rotate together is a hinged stick, and reads as
-    one even through fabric.
+# The dig runs on its own phase, and faster than the curl. Sharing the curl's
+# noise -- which it used to -- meant a digit only ever bore down harder at the
+# moment it was already closing, so the dig contributed no motion of its own,
+# just more of the curl's.
+#
+# Decorrelating it costs amplitude, and the dig has to be sized knowing that:
+# in phase the two swings add coherently, out of phase they partly cancel, so
+# the same dig buys about half the fore-and-aft travel. It is worth paying,
+# because coherent motion is the thing that makes four digits read as one
+# mechanism -- but it has to be paid for, not ignored.
+#
+# The rate matters as much as the size. The curl is slow enough that it only
+# traverses a third of its cycle during the press hold; at this rate the dig
+# completes two or three, which is what turns it from a slow lean into a wiggle.
+FINGER_DIG_RATE = 2.1
+
+
+def animate_fingers(chains, seed, step=2):
+    """Curl each digit on its own clock, so the hand grasps instead of swaying.
+
+    What makes it read as grasping rather than as writhing:
+
+      * Flexion only. Curl runs 0..1 and never goes negative, so a digit closes
+        and opens instead of oscillating about a straight rest pose. The
+        side-to-side splay wobble that used to ride on every knuckle is gone
+        outright -- fingers barely abduct while gripping, and four of them
+        swinging sideways on a shared rhythm read as weeds in a current.
+      * Its own rate, not just its own phase. Sharing a rate lets four digits
+        drift in and out of unison, and unison reads as a mechanism.
+      * A wave down the digit. Each joint trails the one before it, so the curl
+        travels knuckle to fingertip instead of the whole digit hinging as a rod.
+
+    The knuckle also works in and out along Y, and that is what actually sells it
+    in this medium: pressed against a membrane and seen head-on, a fingertip
+    bearing down harder is a brighter fingertip. That reads at a glance, where a
+    few degrees of flexion on its own does not.
     """
     for i, chain in enumerate(chains):
-        rest = [(seg, seg.rotation_euler.x, seg.rotation_euler.y) for seg in chain]
+        # chain[0] is the knuckle pivot and chain[1] rotates about the same
+        # point, so the curl starts at chain[1] -- the pivot would otherwise
+        # double the flex at the knuckle. The pivot does the digging instead.
+        root, segs = chain[0], chain[1:]
+        rest_x = [seg.rotation_euler.x for seg in segs]
+        rest_y = root.location.y
+        rate = 0.75 + 0.21 * i
+
         for frame in range(1, FRAMES + 1, step):
             t = (frame - 1) / (FRAMES - 1)
             k = press_curve(t)
-            for j, (seg, rx, ry) in enumerate(rest):
-                # The knuckle swings furthest; joints further out only trim.
-                amp = 0.26 if j == 0 else 0.15
-                seg.rotation_euler.x = rx + wobble(t, seed + i * 97 + j * 13 + 1) * amp * k
-                if j == 0:
-                    seg.rotation_euler.y = ry + wobble(t, seed + i * 97 + 2) * 0.16 * k
+            for j, seg in enumerate(segs):
+                curl = 0.5 + 0.5 * wobble((t - FINGER_LAG * j) * rate, seed + i * 97)
+                seg.rotation_euler.x = rest_x[j] + FINGER_CURL[j] * curl * k
                 seg.keyframe_insert("rotation_euler", frame=frame)
+
+            grip = 0.5 + 0.5 * wobble(t * rate * FINGER_DIG_RATE, seed + i * 97 + 7)
+            root.location.y = rest_y - FINGER_DIG * grip * k
+            root.keyframe_insert("location", frame=frame)
 
 
 # ------------------------------------------------- membrane solve and shading
@@ -466,25 +592,88 @@ def box_blur(a, r):
     return a
 
 
-def drape(obstacle, radius, iterations=14):
+DRAPE_PASSES = 5  # relaxation passes per level of the radius schedule
+
+# The sheet's smoothing scale, in world units. It is a property of the wall, so
+# it has to be the same for every clip no matter how each one is framed.
+#
+# Deriving it from the frame width instead (res_x * 0.016) looks equivalent and
+# is not: face-hands is a wide frame holding a head no bigger than face-a's, so
+# the same subject got more than twice the smoothing and came out visibly
+# mushier than it does in a square frame.
+DRAPE_SCALE = 0.032
+
+# How hard the sheet is held against whatever is behind it, per pass at the
+# coarsest radius, as a fraction of the clip's full press depth.
+#
+# This is the thickness dial, and it is the difference between cling film and a
+# mattress protector. At zero the solve converges on a taut inextensible sheet,
+# which bridges straight across an open mouth and skirts out with a long, lazy
+# shoulder. Raising it pushes unsupported fabric back down: the mouth becomes a
+# hollow, the webbing between fingers pulls in, and the skirt dies over a short
+# distance with the concave profile that reads as tension.
+DRAPE_SAG = 0.055
+
+
+def _radius_schedule(radius, passes):
+    """Blur radii for one solve, coarse to fine.
+
+    Relaxing at a single radius conflates two things that radius controls at
+    once: how far the solve carries the sheet's support outward, and how much
+    detail survives the blur on the way. At the one radius wide enough to build
+    a drape, a nose is 24px across and a 20px blur erases it -- which is exactly
+    how a face ends up an inflated balloon.
+
+    Going coarse to fine separates them. The wide early passes carry support out
+    to where the drape has to reach; the narrow later passes let the sheet
+    settle back down onto the nose, the lip rims and the knuckles. A box blur
+    costs the same at any radius, so this is free.
+    """
+    levels = []
+    r = radius
+    while r > 1:
+        levels.append(r)
+        r = max(1, int(r * 0.55))
+    levels.append(1)
+    return [lvl for lvl in levels for _ in range(passes)]
+
+
+def drape(obstacle, radius, height_scale):
     """Relax a membrane over the obstacle height field.
 
-    Blur, then clamp back to the obstacle, repeatedly. The blur is the fabric
-    resisting sharp curvature -- it is what spreads the bulge outward into a
-    drape and webs across the gap between two fingers. The clamp is the fabric
-    being unable to pass through what it covers, and is what keeps knuckles and
-    lips crisp instead of dissolving into the blur.
+    Blur, sag, clamp back to the obstacle, repeatedly:
+
+      * the blur is the sheet resisting curvature, and is what spreads a bulge
+        outward into a drape and webs across the gap between two fingers;
+      * the sag is the pressure holding it against what is behind it, and is
+        what keeps it thin (see DRAPE_SAG);
+      * the clamp is the sheet being unable to pass through what it covers, and
+        is what keeps knuckles and lips crisp instead of dissolving into the
+        blur.
+
+    Sag scales with the square of the blur radius so it means the same thing at
+    every level of the schedule: a blur-and-sag step settles where
+    blur(h) - sag == h, and blur(h) - h goes as radius squared times curvature.
+    A flat sag would be swamped at the coarse levels and dominate at the fine
+    ones.
 
     Nothing is pinned, so it decays to flat on its own. That is the whole reason
     this beats a cloth sim here: no global tent, and the background stays at
     exactly zero.
     """
     h = obstacle.copy()
-    for _ in range(iterations):
-        h = np.maximum(box_blur(h, radius), obstacle)
+    for r in _radius_schedule(radius, DRAPE_PASSES):
+        sag = DRAPE_SAG * height_scale * (r / radius) ** 2
+        h = np.maximum(box_blur(h, r) - sag, obstacle)
     return h
 
 
+# Radial stretch creases were tried here and removed. Taking them as iso-lines of
+# the height gradient's direction -- sin(n * theta), which fans n creases around
+# every bulge -- is cheap and needs no noise field, but it fixes the crease
+# *count* rather than their spacing, so they converge wherever the bulge is
+# small. Every fingertip came out wearing a fringe of bristles. Constant spacing
+# would need the count to grow with radius, which that formulation cannot say.
 NEUTRAL = 0.5
 
 
@@ -572,17 +761,35 @@ CLIPS = {
                    heads=[(1, 0.78, (0.05, 0.0, -0.04), 0.56)], hands=[]),
     "face-c": dict(res=(512, 512), ortho=2.3, height=0.50, mask=0.36,
                    heads=[(2, 0.86, (-0.04, 0.0, 0.03), 0.50)], hands=[]),
-    "hand-a": dict(res=(448, 512), ortho=1.55, height=0.18, mask=0.13,
-                   heads=[], hands=[(0.92, False, (0.0, 0.0, -0.15), 0.17)]),
-    "hand-b": dict(res=(448, 512), ortho=1.60, height=0.19, mask=0.14,
-                   heads=[], hands=[(0.96, True, (0.0, 0.0, -0.12), 0.18)]),
-    "hands-pair": dict(res=(768, 480), ortho=2.9, height=0.18, mask=0.13,
-                       heads=[], hands=[(0.86, False, (-0.70, 0.0, -0.10), 0.17),
-                                        (0.86, True, (0.74, 0.0, -0.02), 0.16)]),
-    "face-hands": dict(res=(832, 512), ortho=3.7, height=0.50, mask=0.20,
+    # Hand presses run deeper than they used to, and the height headroom above
+    # them is much wider. Both are the grasp: the press is now the *mean* reach
+    # of a digit that is working in and out, so it has to clear the slack end of
+    # that swing, and the height has to clear the clutching end.
+    #
+    # Height is roughly twice the press, which looks extravagant and is not. A
+    # fingertip at full clutch reaches far past the mean the press is measured
+    # from -- at height 0.26 the tips saturated on 9 frames in 144, flattening
+    # the one part of the hand you most want to read into a white plateau.
+    # Hand masks track the depth the digits actually reach, not the nominal
+    # press. They were left at 0.15 when the press went up, which saturated the
+    # mask across the whole hand -- and a saturated mask means depth stops
+    # mapping to brightness, so a finger bearing down harder looked exactly like
+    # one easing off. All the fore-and-aft motion was there and none of it was
+    # visible.
+    "hand-a": dict(res=(448, 512), ortho=1.55, height=0.46, mask=0.27,
+                   heads=[], hands=[(0.92, False, (0.0, 0.0, -0.15), 0.20)]),
+    "hand-b": dict(res=(448, 512), ortho=1.60, height=0.48, mask=0.28,
+                   heads=[], hands=[(0.96, True, (0.0, 0.0, -0.12), 0.21)]),
+    "hands-pair": dict(res=(768, 480), ortho=2.9, height=0.46, mask=0.27,
+                       heads=[], hands=[(0.86, False, (-0.70, 0.0, -0.10), 0.20),
+                                        (0.86, True, (0.74, 0.0, -0.02), 0.19)]),
+    # One mask serves both subjects here, so it is a compromise: high enough
+    # that the digits still modulate with depth, low enough that it does not
+    # drain the head, which is far deeper than they are.
+    "face-hands": dict(res=(832, 512), ortho=3.7, height=0.50, mask=0.24,
                        heads=[(0, 0.74, (0.0, 0.0, 0.05), 0.50)],
-                       hands=[(0.68, False, (-1.02, 0.0, -0.26), 0.18),
-                              (0.68, True, (1.06, 0.0, -0.20), 0.17)]),
+                       hands=[(0.68, False, (-1.02, 0.0, -0.26), 0.21),
+                              (0.68, True, (1.06, 0.0, -0.20), 0.20)]),
 }
 
 
@@ -642,7 +849,7 @@ def render_clip(name, cfg, out_dir):
     os.makedirs(raw_dir, exist_ok=True)
 
     world_per_px = cfg["ortho"] / res_x
-    radius = max(2, int(res_x * 0.016))
+    radius = max(2, round(DRAPE_SCALE / world_per_px))
     soften = max(1, int(res_x * 0.005))
     fade = edge_fade((res_y, res_x))
 
@@ -653,7 +860,7 @@ def render_clip(name, cfg, out_dir):
         bpy.ops.render.render(write_still=True)
 
         obstacle = read_gray(raw, (res_y, res_x)) * height_scale
-        h = drape(obstacle, radius, iterations=18)
+        h = drape(obstacle, radius, height_scale)
         # A final softening pass. Not cosmetic: the height field is quantised to
         # a pixel grid, and its gradient turns that staircase into faint
         # terracing across every smooth surface.
