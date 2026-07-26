@@ -24,14 +24,25 @@
  *    element a z-index, or moving it past .stage, breaks one or the other.
  */
 
+/* Weighted rather than uniform, so the mix is a decision rather than a side
+ * effect of how many clips of each kind happen to exist.
+ *
+ * Faces run about two to one over hands. Weighting them equally across five
+ * face clips is what makes that affordable: a face is a still pose and repeats
+ * are conspicuous, so the extra frequency has to be spread over the whole set
+ * rather than concentrated, or the wall just shows the same scream more often.
+ * face-hands is counted on the hand side -- it is the widest clip in the
+ * library and reads as a hands clip that happens to contain a head. */
 const CLIPS = [
-  { name: 'face-a', w: 512, h: 512 },
-  { name: 'face-b', w: 512, h: 512 },
-  { name: 'face-c', w: 512, h: 512 },
-  { name: 'hand-a', w: 448, h: 512 },
-  { name: 'hand-b', w: 448, h: 512 },
-  { name: 'hands-pair', w: 768, h: 480 },
-  { name: 'face-hands', w: 832, h: 512 },
+  { name: 'face-a', w: 512, h: 512, weight: 3 },
+  { name: 'face-b', w: 512, h: 512, weight: 3 },
+  { name: 'face-c', w: 512, h: 512, weight: 3 },
+  { name: 'face-d', w: 512, h: 512, weight: 3 },
+  { name: 'face-e', w: 512, h: 512, weight: 3 },
+  { name: 'hand-a', w: 448, h: 512, weight: 3 },
+  { name: 'hand-b', w: 448, h: 512, weight: 3 },
+  { name: 'hands-pair', w: 768, h: 480, weight: 1 },
+  { name: 'face-hands', w: 832, h: 512, weight: 1 },
 ];
 
 /* Intensity tiers, weighted. Most apparitions are meant to be missable -- the
@@ -86,13 +97,14 @@ const MAX_LIVE = 4;
 const PLACE_ATTEMPTS = 40;
 
 const rand = ([lo, hi]) => lo + Math.random() * (hi - lo);
-const pick = (a) => a[(Math.random() * a.length) | 0];
 
-function pickTier() {
-  const total = TIERS.reduce((s, t) => s + t.weight, 0);
+/* Weighted choice over anything carrying a .weight. The trailing return is for
+ * floating-point drift on the last item, not for an empty list. */
+function pick(items) {
+  const total = items.reduce((s, t) => s + t.weight, 0);
   let r = Math.random() * total;
-  for (const t of TIERS) if ((r -= t.weight) < 0) return t;
-  return TIERS[0];
+  for (const t of items) if ((r -= t.weight) < 0) return t;
+  return items[items.length - 1];
 }
 
 function keepOutRects() {
@@ -205,7 +217,7 @@ function spawn(layer) {
   updateMask(layer);
 
   const clip = pick(CLIPS);
-  const tier = pickTier();
+  const tier = pick(TIERS);
   const height = window.innerHeight * (rand(tier.height) / 100);
   const width = height * (clip.w / clip.h);
   const at = place(width, height);

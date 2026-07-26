@@ -2,4 +2,5 @@ desktop.ini
 node_modules/
 .wrangler/
 dist/
+__pycache__/
 .claude/settings.local.json

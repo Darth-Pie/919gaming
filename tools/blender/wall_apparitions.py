@@ -37,6 +37,28 @@ crisp. Because nothing is pinned, it decays to flat on its own -- no tent, no
 wrinkles, and true flat everywhere nothing is pushing. It also runs in seconds
 per clip rather than minutes.
 
+
+WHY THE HANDS ARE TILTED
+
+Everything here is a height field, so a subject only reads if it has depth
+*range*. That is easy to forget with the hands, because a hand modelled facing
+the wall is a perfectly good hand -- it just happens to be one whose knuckles,
+fingertips and heel all sit at the same depth. Rendered, it has almost no
+gradient to shade, and what comes out is a flat print pressed on glass rather
+than something pushing through. The fix is not in the membrane or the lighting,
+neither of which has anything to work with; it is HAND_TILT plus the flexion the
+digits carry, which together put the fingertips about 0.43 ahead of the palm.
+
+How that flexion is split between the rest pose and the grip is a separate
+question with its own answer, and getting it wrong costs the articulation rather
+than the depth -- see FINGER_CURL.
+
+That tilt then sets the press depth rather than the other way around, which is
+the part that is easy to get backwards: press is measured from the foremost
+point, so the deeper the digits lead, the further back the same press leaves the
+palm. Tilt the hand and keep the old shallow press and the palm never breaks the
+wall at all.
+
 Usage:
   blender -b -P wall_apparitions.py -- --clip face-a --out DIR
   blender -b -P wall_apparitions.py -- --clip all --out DIR
@@ -146,15 +168,65 @@ def gauss(dx, dz, sx, sz):
     return math.exp(-((dx / sx) ** 2 + (dz / sz) ** 2))
 
 
-# mouth_sx/mouth_sz are the gaussian radii of the mouth cavity. Taller than wide
-# is what makes it a scream rather than a frown.
+# Expression lives in the negative features, and almost nowhere else.
+#
+# The first three heads here differed only in their positive relief -- a bigger
+# nose, a heavier brow, a longer jaw -- and all three read as the same face,
+# because the membrane treats every one of those identically: something pushing
+# out. Changing how hard it is pushed changes the face's build, not what the
+# face is doing. The mouth, the eye sockets and the brow furrow are the only
+# places the sheet is *not* pushed, and a hole is the only mark on this surface
+# the eye reads as an expression.
+#
+# So the dials that matter are mouth_sx/mouth_sz (a tall narrow cavity is a
+# scream, a wide shallow one is a snarl, a short thin one is a mouth clamped
+# shut), eye_sz against eyes (round and deep is a hollow stare, a thin slit is
+# a face screwed shut), and furrow, which is the vertical crease between the
+# brows and is worth more per unit than anything else on the head.
+HEAD_BASE = dict(
+    width=0.78, height=1.06, jaw=1.30,                     # proportions
+    nose=0.26, brow=0.11, brow_z=0.30, cheek=0.07, chin=0.11,   # pushed out
+    mouth=0.38, mouth_z=-0.46, mouth_sx=0.18, mouth_sz=0.27,    # not pushed
+    eyes=0.10, eye_x=0.34, eye_z=0.15, eye_sx=0.14, eye_sz=0.10,
+    furrow=0.0,
+)
+
+# Variants state only what they change. Each is named for what it should read
+# as at a glance and half-hidden behind a wall, which is the only way any of
+# them is ever seen.
 HEAD_VARIANTS = [
-    dict(nose=0.26, brow=0.11, cheek=0.07, chin=0.11, mouth=0.38, eyes=0.10,
-         jaw=1.30, width=0.78, height=1.06, mouth_z=-0.46, mouth_sx=0.18, mouth_sz=0.27),
-    dict(nose=0.21, brow=0.14, cheek=0.09, chin=0.08, mouth=0.42, eyes=0.12,
-         jaw=1.42, width=0.72, height=1.14, mouth_z=-0.49, mouth_sx=0.21, mouth_sz=0.31),
-    dict(nose=0.30, brow=0.09, cheek=0.05, chin=0.14, mouth=0.34, eyes=0.08,
-         jaw=1.22, width=0.83, height=1.00, mouth_z=-0.43, mouth_sx=0.16, mouth_sz=0.24),
+    # 0 -- the scream: the tall open cavity, jaw dragged down.
+    dict(furrow=0.05),
+    # 1 -- the wail: longer and narrower, eyes screwed shut to slits, brow down.
+    dict(nose=0.21, brow=0.14, brow_z=0.26, cheek=0.09, chin=0.08,
+         jaw=1.42, width=0.72, height=1.14,
+         mouth=0.42, mouth_z=-0.49, mouth_sx=0.21, mouth_sz=0.31,
+         eyes=0.13, eye_sz=0.055, furrow=0.07),
+    # 2 -- the snarl: mouth wide and flat rather than open, jaw barely dropped,
+    # heavy low brow. Broad where the scream is long.
+    dict(nose=0.30, brow=0.16, brow_z=0.25, cheek=0.10, chin=0.13,
+         jaw=1.10, width=0.86, height=0.98,
+         mouth=0.30, mouth_z=-0.38, mouth_sx=0.32, mouth_sz=0.13,
+         eyes=0.09, eye_z=0.13, eye_sz=0.065, furrow=0.09),
+    # 3 -- the hollow stare: small round mouth, and the sockets doing the work.
+    # The only one here that is not in pain, which is what makes it the worst
+    # of them -- it reads as something looking back rather than suffering.
+    #
+    # A socket only reads as a socket if something around it is pushing. Given
+    # the smooth high brow and flat cheeks this face wants, and sockets twice
+    # the depth of anyone else's, they still came out as vague smudges: nothing
+    # framed them, so there was no edge for the membrane to break over. The brow
+    # and cheekbone here are the rim, not the expression.
+    dict(nose=0.24, brow=0.12, brow_z=0.33, cheek=0.08, chin=0.09,
+         jaw=1.15, width=0.74, height=1.08,
+         mouth=0.32, mouth_z=-0.44, mouth_sx=0.12, mouth_sz=0.13,
+         eyes=0.28, eye_x=0.33, eye_z=0.14, eye_sx=0.16, eye_sz=0.14),
+    # 4 -- the strain: mouth clamped to a grim line, everything else bearing
+    # down. Someone forcing their face into the sheet rather than crying out.
+    dict(nose=0.28, brow=0.18, brow_z=0.27, cheek=0.12, chin=0.16,
+         jaw=1.05, width=0.82, height=1.00,
+         mouth=0.20, mouth_z=-0.42, mouth_sx=0.26, mouth_sz=0.075,
+         eyes=0.11, eye_sx=0.15, eye_sz=0.055, furrow=0.11),
 ]
 
 
@@ -167,7 +239,7 @@ def build_head(variant, scale, mat):
     there, so they stay dark, and that is what turns a lumpy sphere into a
     scream.
     """
-    p = HEAD_VARIANTS[variant]
+    p = dict(HEAD_BASE, **HEAD_VARIANTS[variant])
     bpy.ops.mesh.primitive_uv_sphere_add(segments=96, ring_count=48, radius=1.0)
     obj = bpy.context.object
     obj.name = f"head{variant}"
@@ -185,16 +257,27 @@ def build_head(variant, scale, mat):
         # is so they blend into the skull instead of ending in a seam.
         front = max(0.0, -ny) ** 0.7
 
+        # Lip and jaw rims framing the mouth, so the hollow has a defined edge.
+        # Sized off the mouth rather than fixed: at fixed offsets they sat a
+        # full cavity's width clear of a short mouth and framed nothing, and
+        # their fixed z-radius filled a thin one back in.
+        rim_sx = p["mouth_sx"] * 1.40
+        rim_sz = max(0.038, p["mouth_sz"] * 0.28)
+
         d = 0.0
         d += p["nose"] * gauss(x, z + 0.04, 0.13, 0.24)
-        d += p["brow"] * gauss(abs(x) - 0.27, z - 0.30, 0.21, 0.10)
+        d += p["brow"] * gauss(abs(x) - 0.27, z - p["brow_z"], 0.21, 0.10)
         d += p["cheek"] * gauss(abs(x) - 0.44, z + 0.14, 0.17, 0.19)
         d += p["chin"] * gauss(x, z + 0.86, 0.21, 0.17)
-        # lip and jaw rims framing the mouth, so the hollow has a defined edge
-        d += 0.06 * gauss(x, z - p["mouth_z"] - 0.26, 0.26, 0.07)
-        d += 0.05 * gauss(x, z - p["mouth_z"] + 0.28, 0.24, 0.08)
+        d += 0.06 * gauss(x, z - p["mouth_z"] - p["mouth_sz"] * 0.96, rim_sx, rim_sz)
+        d += 0.05 * gauss(x, z - p["mouth_z"] + p["mouth_sz"] * 1.04,
+                          rim_sx * 0.92, rim_sz)
         d -= p["mouth"] * gauss(x, z - p["mouth_z"], p["mouth_sx"], p["mouth_sz"])
-        d -= p["eyes"] * gauss(abs(x) - 0.34, z - 0.15, 0.14, 0.10)
+        d -= p["eyes"] * gauss(abs(x) - p["eye_x"], z - p["eye_z"],
+                               p["eye_sx"], p["eye_sz"])
+        # The frown crease. A narrow vertical groove cut between the brow ridges
+        # -- the one mark that says a face is straining rather than merely open.
+        d -= p["furrow"] * gauss(x, z - p["brow_z"] + 0.02, 0.045, 0.11)
 
         v.co = Vector((x, ny - d * front, z))
 
@@ -280,7 +363,13 @@ def smooth_surface(obj):
     bpy.ops.object.shade_smooth()
 
 
-PALM = (0.33, 0.105, 0.36)  # half-extents: about as wide as tall, and shallow
+# Half-extents: about as wide as tall, deeper than it looks like it needs to be
+# and shorter than a hand really is. Both are the tilt. Tipping the hand throws
+# the wrist end backwards, so the lower third of a full-length palm sits too far
+# behind the wall to register at all and only costs the clip its composition;
+# and what is left has to be deep enough to still be an obstacle once its own
+# depth is foreshortened away.
+PALM = (0.33, 0.128, 0.32)
 
 # Relief on the palm, mirrored with the hand: x, z, gaussian radii, height.
 # Deliberately restrained -- the palm is the shallowest thing in the clip, so
@@ -289,17 +378,25 @@ PALM_BUMPS = [
     # The knuckle ridge carries the finger roots, which sit proud of the palm so
     # the membrane does not catch in a step at the base of each digit. Flatten
     # these and the outer fingers start reading as detached from the hand.
-    (-0.215, 0.25, 0.090, 0.11, 0.058),   # knuckles, under each finger
-    (-0.072, 0.27, 0.090, 0.11, 0.058),
-    (0.072, 0.26, 0.090, 0.11, 0.056),
-    (0.215, 0.23, 0.085, 0.10, 0.055),
-    (0.20, -0.12, 0.15, 0.22, 0.038),     # thenar mound, behind the thumb
-    (-0.23, -0.16, 0.12, 0.20, 0.030),    # hypothenar mound, the pinky heel
-    (0.0, -0.04, 0.17, 0.17, -0.032),     # the cup between the two
+    #
+    # These came down from 0.058 when the digits started leading. They were
+    # raised to stop the index finger tearing loose from a flat hand, where the
+    # roots barely cleared the palm at all; a tilted hand carries its knuckles
+    # forward on its own, and at the old height the ridge overtook the roots and
+    # put the step back the other way round.
+    (-0.215, 0.25, 0.090, 0.11, 0.040),   # knuckles, under each finger
+    (-0.072, 0.27, 0.090, 0.11, 0.040),
+    (0.072, 0.26, 0.090, 0.11, 0.039),
+    (0.215, 0.23, 0.085, 0.10, 0.038),
+    # The mounds are pulled up out of the wrist for the same reason the palm was
+    # shortened: down where they used to sit, the tilt had already taken them
+    # behind the wall, so all they did was fail to render.
+    (0.21, -0.02, 0.15, 0.20, 0.052),     # thenar mound, behind the thumb
+    (-0.23, -0.07, 0.12, 0.19, 0.042),    # hypothenar mound, the pinky heel
+    (0.0, 0.02, 0.17, 0.16, -0.030),      # the cup between the two
 ]
 
-# knuckle x, finger length, base splay (deg). Lengths are ~0.8x palm height, so
-# the visible part of each finger is roughly as long as the palm, as on a hand.
+# knuckle x, finger length, base splay (deg), extra rest flexion (rad).
 #
 # Splay is generous. Adjacent knuckles are 0.143 apart and a finger is 0.123
 # wide, so at the base they very nearly touch -- as they do on a hand. All the
@@ -307,11 +404,19 @@ PALM_BUMPS = [
 # by the middle phalanx the gaps have opened to several times the membrane's
 # smoothing scale, which is the point at which it stops bridging them and starts
 # sinking in between.
+#
+# The per-finger flexion bias is what stops this reading as a wave. Four digits
+# at one angle, evenly fanned, is the high-five silhouette however they are lit
+# -- the eye reads the *even* fan, not the pose. Real fingers curling into
+# something never agree: the index leads, the pinky tucks. Biasing the rest
+# flexion is also cheaper than biasing the animation, because it survives the
+# slack end of the grip cycle, which is exactly where the hand used to flatten
+# out and go back to waving.
 FINGERS = [
-    (-0.215, 0.66, -17.0),  # index
-    (-0.072, 0.73, -6.0),   # middle
-    (0.072, 0.68, 6.0),     # ring
-    (0.215, 0.55, 18.0),    # pinky
+    (-0.215, 0.62, -15.0, 0.06),  # index -- reaches furthest, curls least
+    (-0.072, 0.68, -5.0, 0.00),   # middle
+    (0.072, 0.63, 7.0, 0.11),     # ring
+    (0.215, 0.51, 19.0, 0.20),    # pinky -- tucked well under
 ]
 
 # Per phalanx: fraction of total length, fraction of base radius, rest flexion.
@@ -331,8 +436,21 @@ FINGERS = [
 # more overlap. It had to come down once the membrane got thin: a thick sheet
 # tented straight over the gap between two segments, and a thin one drops into
 # it and draws a hard black line at every joint.
-PHALANGES = [(0.42, 1.00, 0.04), (0.33, 0.93, 0.08), (0.25, 0.85, 0.06)]
-PHALANX_OVERLAP = 0.68
+#
+# The rest flexion was nearly nothing -- 10 degrees over the whole digit, which
+# is a straight finger. Straight fingers lying in the plane of the wall are why
+# the hand read as a print pressed on glass: the tip finished barely 0.03 ahead
+# of the palm, so tip, knuckle and heel all rendered at one depth and there was
+# no gradient in the height field for the shading to find.
+#
+# It then went too far the other way. Resting the digits already half-closed
+# used up most of the room between flat and the 90-degree ceiling, so the grip
+# had only about 30 degrees left to move in and all four fingers sat at
+# near-identical angles whatever the animation did with them -- an arm and a
+# fist, not a hand. The rest pose is back to roughly a third closed, which still
+# leads with the tips, and the range it frees up goes to FINGER_CURL.
+PHALANGES = [(0.42, 1.00, 0.08), (0.33, 0.93, 0.13), (0.25, 0.85, 0.11)]
+PHALANX_OVERLAP = 0.62
 
 # Fingers were 0.160 wide across knuckles 0.143 apart -- that is, they
 # intersected each other, and no amount of work on the membrane was ever going
@@ -340,6 +458,28 @@ PHALANX_OVERLAP = 0.68
 # a real one.
 FINGER_RADIUS = 0.055
 FINGER_SECTION = (1.12, 0.86)  # wider than deep
+
+# The whole hand is tipped forward about X, so the digits travel out of the wall
+# toward the camera and the wrist falls away behind it.
+#
+# This is the difference between a hand pushing through a membrane and a hand
+# pressed flat on a window, and it is not a lighting or a membrane property --
+# a hand parallel to the wall has no depth for either to work with. Tipping it
+# spends projected length to buy depth range, and the exchange rate is good: the
+# tilt itself costs only cos(21) of the hand's height, about 7%, while carrying
+# the whole knuckle line forward and the whole wrist back.
+#
+# The tilt is not the only source of the depth, and on its own it would not be
+# enough -- most of the 0.44 the fingertips end up leading the palm by comes
+# from the rest flexion in PHALANGES. What the tilt uniquely does is swing the
+# *palm* out of plane, which is what turns a flat slab into a receding one.
+#
+# It is also self-limiting, which is why it is this shallow. Press depth is
+# measured from the foremost point, so every degree of tilt pushes the palm
+# further back behind the wall for the same press; past about 30 degrees the
+# palm stops breaking the plane at all and the clip becomes four fingers
+# floating in front of nothing.
+HAND_TILT = math.radians(21.0)
 
 
 def _chain(name, base, radius, length, phalanges, mat, section):
@@ -375,28 +515,43 @@ def build_hand(name, scale, mat, mirror=False):
     palm = build_palm(name, side, mat)
     chains = []
 
-    for i, (kx, length, splay) in enumerate(FINGERS):
+    for i, (kx, length, splay, bias) in enumerate(FINGERS):
         root = bpy.data.objects.new(f"{name}_k{i}", None)  # knuckle pivot
         bpy.context.collection.objects.link(root)
         # Proud of the knuckle ridge, not level with it: rooted flush, the ridge
         # stands further forward than the finger base and the membrane drops
         # into the step between them, drawing a dark band across the knuckles.
-        root.location = (kx * side, -0.062, 0.22)
-        root.rotation_euler = (0.0, math.radians(splay * side), 0.0)
+        #
+        # -0.062 was flush at best and behind at worst. The knuckle bumps stand
+        # 0.055 off an ellipsoid that is itself 0.05 to 0.08 deep under each
+        # finger, so the ridge reached -0.10 to -0.13 and the roots sat behind
+        # all four of them -- which is the dark band that was cutting the digits
+        # off from the hand. This clears the tallest of them.
+        root.location = (kx * side, -0.152, 0.22)
+        # X before Y in Blender's default euler order, so the bias tips the
+        # digit out of the wall and the splay then fans it sideways.
+        root.rotation_euler = (bias, math.radians(splay * side), 0.0)
         root.parent = palm
         root.matrix_parent_inverse = Matrix.Identity(4)
         chains.append([root] + _chain(f"{name}_f{i}", root, FINGER_RADIUS, length,
                                       PHALANGES, mat, FINGER_SECTION))
 
     # Well inside the palm's edge -- at the rim it swings clear as it rotates
-    # out and reads as a detached wedge floating beside the hand.
+    # out and reads as a detached wedge floating beside the hand. Pulled further
+    # in and forward again for the same reason as the knuckles: behind the
+    # thenar mound it was rendering as a loose pill lying beside the hand.
     thumb = bpy.data.objects.new(f"{name}_tk", None)
     bpy.context.collection.objects.link(thumb)
-    thumb.location = (0.19 * side, -0.02, -0.14)
-    thumb.rotation_euler = (0.0, math.radians(58 * side), 0.0)
+    # Up level with the base of the index finger, where a thumb actually crosses
+    # a closing hand, and where the tilt has not yet carried the palm away
+    # behind it. Down at the old height it was proud of a surface that had
+    # already receded, so the membrane fell away all round it and it rendered as
+    # a loose pill lying next to the hand.
+    thumb.location = (0.215 * side, -0.132, -0.015)
+    thumb.rotation_euler = (0.17, math.radians(57 * side), 0.0)
     thumb.parent = palm
     thumb.matrix_parent_inverse = Matrix.Identity(4)
-    chains.append([thumb] + _chain(f"{name}_thumb", thumb, 0.064, 0.48,
+    chains.append([thumb] + _chain(f"{name}_thumb", thumb, 0.064, 0.46,
                                    PHALANGES[:2], mat, (1.10, 0.90)))
 
     palm.scale = (scale, scale, scale)
@@ -481,8 +636,15 @@ def front_extent(obj, samples=9):
     return total / samples
 
 
-def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2):
-    """Drive an object from clear of the wall to press_depth through it."""
+def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2,
+                  rest_rot=(0.0, 0.0, 0.0)):
+    """Drive an object from clear of the wall to press_depth through it.
+
+    rest_rot is the pose the writhing rides on rather than replaces: these
+    keyframes overwrite rotation_euler outright every frame, so a tilt set at
+    build time would simply be erased on frame 1.
+    """
+    obj.rotation_euler = rest_rot
     bpy.context.view_layer.update()
     reach = front_extent(obj)
     rest_y = reach + 0.55           # nothing touching
@@ -499,9 +661,9 @@ def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2):
         )
         # Writhing only ramps in once there is something to writhe against.
         obj.rotation_euler = (
-            wobble(t, seed + 33) * rot_amp * k,
-            wobble(t, seed + 44) * rot_amp * 1.4 * k,
-            wobble(t, seed + 55) * rot_amp * k,
+            rest_rot[0] + wobble(t, seed + 33) * rot_amp * k,
+            rest_rot[1] + wobble(t, seed + 44) * rot_amp * 1.4 * k,
+            rest_rot[2] + wobble(t, seed + 55) * rot_amp * k,
         )
         obj.keyframe_insert("location", frame=frame)
         obj.keyframe_insert("rotation_euler", frame=frame)
@@ -512,9 +674,47 @@ def animate_press(obj, offset, press_depth, seed, rot_amp=0.16, step=2):
 # to its forward reach at full clutch it has to give back at full slack, and a
 # digit that gives back more than the press has lifted off the wall and
 # disappeared.
-FINGER_CURL = (0.30, 0.34, 0.24)
-FINGER_DIG = 0.13
+#
+# The ceiling is 90 degrees out of the wall: a digit carried past that curls its
+# fingertip back *toward* the wall, so the deepest point starts retreating at
+# exactly the moment it clenches hardest. Rest flexion and this swing have to
+# share the room underneath it, and the split matters more than the total. Spent
+# on rest flexion it buys a pose; spent here it buys articulation, and only the
+# second one moves.
+FINGER_CURL = (0.30, 0.34, 0.28)
+
+# Per-digit swing scaling, index outward, thumb last. Nothing anatomical -- it
+# is here so that no two digits ever traverse the same arc, which is what the
+# eye actually uses to tell them apart.
+FINGER_AMP = (1.00, 0.92, 1.06, 0.84, 0.70)
+
+FINGER_DIG = 0.10
 FINGER_LAG = 0.07  # fraction of the clip each joint trails the one before it
+
+# How far each digit trails the one inboard of it, as a fraction of the clip.
+#
+# This is the difference between four fingers moving independently and a hand
+# closing. Independence was already there -- every digit had its own noise seed
+# and its own rate -- and independence alone reads as four separate things that
+# happen to be attached, or, when they drift into agreement, as one rigid unit.
+# What a hand reaching for something actually does is close in a wave, and a
+# wave needs the digits to share a rhythm and differ by a *phase*, which noise
+# by construction cannot give you.
+FINGER_SWEEP = 0.13
+FINGER_SWEEP_RATE = 0.85
+
+# How much of the curl is the digit's own irregularity rather than the shared
+# wave. All wave and the hand is a machine; all own and it is weeds in a
+# current. This much keeps the sweep legible while stopping it from looking
+# clocked.
+FINGER_OWN = 0.38
+
+# Fingers draw together as they close and fan as they open, because a hand
+# reaching to grab converges on the thing it is grabbing. This is adduction
+# coupled to the grip, not the side-to-side sway that used to live on these
+# knuckles -- that was an oscillation of its own and read as seaweed. Tied to
+# the curl it cannot oscillate independently; it can only tighten the grasp.
+FINGER_ADDUCT = 0.42
 
 # The dig runs on its own phase, and faster than the curl. Sharing the curl's
 # noise -- which it used to -- meant a digit only ever bore down harder at the
@@ -533,45 +733,75 @@ FINGER_LAG = 0.07  # fraction of the clip each joint trails the one before it
 FINGER_DIG_RATE = 2.1
 
 
-def animate_fingers(chains, seed, step=2):
-    """Curl each digit on its own clock, so the hand grasps instead of swaying.
+def _curl(t, i, j, seed, rate):
+    """How closed digit i's joint j is at time t, in 0..1.
 
-    What makes it read as grasping rather than as writhing:
+    Two components. The first is a rhythm shared by the whole hand, delayed by
+    FINGER_SWEEP per digit and FINGER_LAG per joint, so closing travels outward
+    across the hand and down each digit -- a wave, which is what a hand reaching
+    for something does and what makes four digits read as one hand rather than
+    four worms. The second is the digit's own noise on its own rate, which keeps
+    the wave from looking clocked.
+
+    The distinction that matters here is between independent and *out of phase*.
+    Four digits on four noise seeds are independent, and independence is not
+    articulation: it has no structure, so it reads as either four unrelated
+    things or -- whenever the seeds drift into agreement, which they do -- as one
+    rigid unit. A phase offset is the thing noise cannot supply, because it is
+    precisely a correlation.
+    """
+    sweep = 0.5 + 0.5 * wobble(
+        t * FINGER_SWEEP_RATE - FINGER_SWEEP * i - FINGER_LAG * j, seed)
+    own = 0.5 + 0.5 * wobble((t - FINGER_LAG * j) * rate * 1.7, seed + i * 97)
+    return (1.0 - FINGER_OWN) * sweep + FINGER_OWN * own
+
+
+def animate_fingers(chains, seed, step=2):
+    """Close each digit as part of a wave across the hand, not on its own clock.
+
+    What makes it read as a hand reaching to grab:
 
       * Flexion only. Curl runs 0..1 and never goes negative, so a digit closes
-        and opens instead of oscillating about a straight rest pose. The
-        side-to-side splay wobble that used to ride on every knuckle is gone
-        outright -- fingers barely abduct while gripping, and four of them
-        swinging sideways on a shared rhythm read as weeds in a current.
-      * Its own rate, not just its own phase. Sharing a rate lets four digits
-        drift in and out of unison, and unison reads as a mechanism.
-      * A wave down the digit. Each joint trails the one before it, so the curl
-        travels knuckle to fingertip instead of the whole digit hinging as a rod.
+        and opens instead of oscillating about a straight rest pose.
+      * A phase, not just a seed. See _curl -- this is the whole difference
+        between a hand closing and an arm with a fist on the end of it.
+      * A wave down each digit as well as across the hand, so the curl travels
+        knuckle to fingertip instead of the digit hinging as a rod.
+      * Adduction tied to the curl, so the fingers converge as they close.
+        Coupled rather than free, it cannot become the side-to-side sway that
+        made an earlier version read as weeds in a current.
 
-    The knuckle also works in and out along Y, and that is what actually sells it
-    in this medium: pressed against a membrane and seen head-on, a fingertip
-    bearing down harder is a brighter fingertip. That reads at a glance, where a
-    few degrees of flexion on its own does not.
+    The knuckle also works in and out along Y, and that is what sells it in this
+    medium: pressed against a membrane and seen head-on, a fingertip bearing
+    down harder is a brighter fingertip. That reads at a glance, where a few
+    degrees of flexion on its own does not.
     """
     for i, chain in enumerate(chains):
         # chain[0] is the knuckle pivot and chain[1] rotates about the same
         # point, so the curl starts at chain[1] -- the pivot would otherwise
-        # double the flex at the knuckle. The pivot does the digging instead.
+        # double the flex at the knuckle. The pivot digs and adducts instead.
         root, segs = chain[0], chain[1:]
         rest_x = [seg.rotation_euler.x for seg in segs]
         rest_y = root.location.y
+        rest_splay = root.rotation_euler.y
         rate = 0.75 + 0.21 * i
+        amp = FINGER_AMP[i % len(FINGER_AMP)]
 
         for frame in range(1, FRAMES + 1, step):
             t = (frame - 1) / (FRAMES - 1)
             k = press_curve(t)
             for j, seg in enumerate(segs):
-                curl = 0.5 + 0.5 * wobble((t - FINGER_LAG * j) * rate, seed + i * 97)
-                seg.rotation_euler.x = rest_x[j] + FINGER_CURL[j] * curl * k
+                seg.rotation_euler.x = (
+                    rest_x[j] + FINGER_CURL[j] * amp * _curl(t, i, j, seed, rate) * k)
                 seg.keyframe_insert("rotation_euler", frame=frame)
 
-            grip = 0.5 + 0.5 * wobble(t * rate * FINGER_DIG_RATE, seed + i * 97 + 7)
-            root.location.y = rest_y - FINGER_DIG * grip * k
+            grip = _curl(t, i, 0, seed, rate)
+            # Only .y moves; .x carries the digit's rest flexion bias.
+            root.rotation_euler.y = rest_splay * (1.0 - FINGER_ADDUCT * grip * k)
+            root.keyframe_insert("rotation_euler", frame=frame)
+
+            dig = 0.5 + 0.5 * wobble(t * rate * FINGER_DIG_RATE, seed + i * 97 + 7)
+            root.location.y = rest_y - FINGER_DIG * dig * k
             root.keyframe_insert("location", frame=frame)
 
 
@@ -746,8 +976,20 @@ def edge_fade(shape, margin=0.06):
 # press: how far past the wall an object's *foremost* point travels, per object.
 # It has to exceed the depth of the features you want to read -- press a head
 # only 0.2 and just the nose tip breaks the plane, giving a bright dot instead
-# of a face. Hands want far less: a palm is shallow, so the same 0.5 would shove
-# the whole hand through and flatten it into a featureless plateau.
+# of a face.
+#
+# Hands used to want far less than a head, on the reasoning that a palm is
+# shallow. That stopped being true when they were tipped forward: a tilted,
+# half-closed hand is nearly as deep as it is wide, and measured on the built
+# geometry its fingertips lead its palm by 0.44 -- so pressed the old 0.20 the
+# palm cleared the wall by 0.01 and the clip was four fingers floating in front
+# of nothing. Press has to cover that gap plus however far into the wall you
+# want the palm itself.
+#
+# Press and mask are world distances against geometry that is scaled per clip,
+# so both track the hand's own scale. Leave them flat across clips and the small
+# hands in face-hands get pressed proportionally twice as deep as the big one in
+# hand-a and come out as featureless plateaus.
 #
 # height: the deepest press in the clip, used to normalise the height encoding.
 #
@@ -761,6 +1003,14 @@ CLIPS = {
                    heads=[(1, 0.78, (0.05, 0.0, -0.04), 0.56)], hands=[]),
     "face-c": dict(res=(512, 512), ortho=2.3, height=0.50, mask=0.36,
                    heads=[(2, 0.86, (-0.04, 0.0, 0.03), 0.50)], hands=[]),
+    # The stare presses shallower than the rest on purpose. Its expression is
+    # carried entirely by two deep sockets, and driving it as far through as a
+    # scream floods the whole face bright enough that the sockets stop being the
+    # darkest thing in the frame, which is the only thing holding it together.
+    "face-d": dict(res=(512, 512), ortho=2.3, height=0.46, mask=0.33,
+                   heads=[(3, 0.80, (0.03, 0.0, -0.02), 0.46)], hands=[]),
+    "face-e": dict(res=(512, 512), ortho=2.3, height=0.54, mask=0.39,
+                   heads=[(4, 0.84, (-0.02, 0.0, 0.02), 0.54)], hands=[]),
     # Hand presses run deeper than they used to, and the height headroom above
     # them is much wider. Both are the grasp: the press is now the *mean* reach
     # of a digit that is working in and out, so it has to clear the slack end of
@@ -776,20 +1026,20 @@ CLIPS = {
     # mapping to brightness, so a finger bearing down harder looked exactly like
     # one easing off. All the fore-and-aft motion was there and none of it was
     # visible.
-    "hand-a": dict(res=(448, 512), ortho=1.55, height=0.46, mask=0.27,
-                   heads=[], hands=[(0.92, False, (0.0, 0.0, -0.15), 0.20)]),
-    "hand-b": dict(res=(448, 512), ortho=1.60, height=0.48, mask=0.28,
-                   heads=[], hands=[(0.96, True, (0.0, 0.0, -0.12), 0.21)]),
-    "hands-pair": dict(res=(768, 480), ortho=2.9, height=0.46, mask=0.27,
-                       heads=[], hands=[(0.86, False, (-0.70, 0.0, -0.10), 0.20),
-                                        (0.86, True, (0.74, 0.0, -0.02), 0.19)]),
+    "hand-a": dict(res=(448, 512), ortho=1.32, height=0.74, mask=0.28,
+                   heads=[], hands=[(0.92, False, (0.02, 0.0, -0.02), 0.49)]),
+    "hand-b": dict(res=(448, 512), ortho=1.38, height=0.77, mask=0.29,
+                   heads=[], hands=[(0.96, True, (0.0, 0.0, -0.01), 0.51)]),
+    "hands-pair": dict(res=(768, 480), ortho=2.9, height=0.69, mask=0.26,
+                       heads=[], hands=[(0.86, False, (-0.72, 0.0, 0.0), 0.46),
+                                        (0.86, True, (0.76, 0.0, 0.08), 0.45)]),
     # One mask serves both subjects here, so it is a compromise: high enough
     # that the digits still modulate with depth, low enough that it does not
     # drain the head, which is far deeper than they are.
-    "face-hands": dict(res=(832, 512), ortho=3.7, height=0.50, mask=0.24,
+    "face-hands": dict(res=(832, 512), ortho=3.7, height=0.56, mask=0.24,
                        heads=[(0, 0.74, (0.0, 0.0, 0.05), 0.50)],
-                       hands=[(0.68, False, (-1.02, 0.0, -0.26), 0.21),
-                              (0.68, True, (1.06, 0.0, -0.20), 0.20)]),
+                       hands=[(0.68, False, (-1.02, 0.0, -0.16), 0.36),
+                              (0.68, True, (1.06, 0.0, -0.10), 0.35)]),
 }
 
 
@@ -810,7 +1060,8 @@ def build_clip(name):
         # with jointed digits that is a fingertip whose position depends on the
         # rest flexion these keyframes establish.
         animate_fingers(chains, seed + 900 + i * 311)
-        animate_press(palm, offset, press, seed + 500 + i * 211, rot_amp=0.13)
+        animate_press(palm, offset, press, seed + 500 + i * 211, rot_amp=0.13,
+                      rest_rot=(HAND_TILT, 0.0, 0.0))
     return cfg
 
 
