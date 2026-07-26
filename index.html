@@ -108,6 +108,27 @@
     transition:opacity 1.1s ease; will-change:opacity;
     filter:blur(var(--blur,4px)); }
 
+  /* The ghost mascot (see src/ghost.js). Screen, not soft-light: he is a
+     luminous thing in front of the wall rather than something pressing through
+     it, and screen is what makes his black background disappear and the damask
+     read through his body. Same paint slot as the apparitions for the same
+     reason -- he has to blend over the burgundy, not over the near-black page
+     behind it.
+
+     No transition on opacity anywhere here. Clips cut rather than crossfade;
+     two screen-blended clips overlapping would both add light and he would
+     flare every time he changed state.
+
+     Called .mascot and not .ghost because .ghost is already taken, further down
+     this stylesheet, by the dashed "More Realms to Come" placeholder on the
+     shelf. Naming this one .ghost silently restyled that placeholder -- it
+     inherited screen blending and pointer-events:none, and the reduced-motion
+     rule below would have hidden it outright. */
+  .mascot{ position:fixed; inset:0; overflow:hidden; pointer-events:none;
+    mix-blend-mode:screen; opacity:0.82; }
+  .mascot-clip{ position:absolute; left:0; top:0; width:132px; height:132px;
+    will-change:transform; }
+
   @keyframes drift{
     0%{ transform:translateY(0) translateX(0); opacity:0; }
     10%{ opacity:0.5; } 90%{ opacity:0.3; }
@@ -460,7 +481,7 @@
   }
   @media (prefers-reduced-motion: reduce){
     .mote,.cover,.book,.masthead,.prompt,.shelf-wrap{ animation:none !important; }
-    .apparitions{ display:none; }
+    .apparitions,.mascot{ display:none; }
   }
 </style>
 </head>
@@ -469,6 +490,7 @@
   <div class="motes" id="motes"></div>
   <div class="wall"></div>
   <div class="apparitions" id="apparitions" aria-hidden="true"></div>
+  <div class="mascot" id="mascot" aria-hidden="true"></div>
 
   <div class="top-nav">
     <a href="/keepers-secrets"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>Keeper's Secrets</a>

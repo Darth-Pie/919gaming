@@ -264,6 +264,29 @@ function spawn(layer) {
   if (playing) playing.catch(() => el.remove());
 }
 
+/* Where the apparitions currently are, for anything that wants to react to one.
+ *
+ * Read off the live DOM rather than kept as a list this module maintains: an
+ * apparition's element is removed by a timer after it fades, and a registry
+ * updated by hand would drift out of step with that every time the removal path
+ * changed. The elements are the source of truth, so ask them.
+ *
+ * Only counts apparitions that are actually showing. A clip is appended and
+ * played before it fades in, and one that has not yet reached its peak opacity
+ * is not visible to anybody -- being startled by it would look like the ghost
+ * reacting to nothing.
+ */
+export function liveApparitions() {
+  const layer = document.getElementById('apparitions');
+  if (!layer) return [];
+  const out = [];
+  for (const el of layer.children) {
+    if (parseFloat(el.style.opacity || '0') < 0.2) continue;
+    out.push(el.getBoundingClientRect());
+  }
+  return out;
+}
+
 export function startWallApparitions() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   if (navigator.connection && navigator.connection.saveData) return;
