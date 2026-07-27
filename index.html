@@ -126,7 +126,13 @@
      rule below would have hidden it outright. */
   .mascot{ position:fixed; inset:0; overflow:hidden; pointer-events:none;
     mix-blend-mode:screen; opacity:0.82; }
-  .mascot-clip{ position:absolute; left:0; top:0; width:132px; height:132px;
+  /* --mascot-size is set from src/ghost.js, which caps it against the viewport;
+     264px is the desktop value and the fallback. It must agree with SIZE over
+     there -- he is positioned in page pixels from JS, and his reach and swat
+     ranges are derived from that number, so a mismatch is not cosmetic, it is
+     him lunging at things well outside himself. */
+  .mascot-clip{ position:absolute; left:0; top:0;
+    width:var(--mascot-size,264px); height:var(--mascot-size,264px);
     will-change:transform; }
 
   @keyframes drift{

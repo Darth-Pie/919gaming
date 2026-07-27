@@ -277,13 +277,53 @@ def set_arm(obj, side, swing, reach=0.0, lift=0.0):
 
 # --------------------------------------------------------------- the material
 
+# Where the light comes from, in world space. The camera looks down +Y, so -Y is
+# toward the viewer: this is up, to his left, and slightly forward.
+KEY_DIR = (-0.46, -0.50, 0.73)
+KEY_MIN = 0.60     # emission multiplier on his shadow side
+KEY_MAX = 1.34     # and on his lit side
+
+# How much of his glow survives on the far wall of his own body -- see
+# ghost_material. Low enough that looking up the open hem stays dark.
+#
+# It is also the density dial. Two-sided rendering adds a second layer of ghost
+# to most of his area, and at the value that first looked right in isolation
+# (0.34) it lifted his mean brightness by two thirds -- he gained depth and lost
+# the see-through, which is a bad trade on a wall whose damask is the point.
+BACK = 0.20
+
+
 def ghost_material():
     """Emission, brightest at the silhouette and dying out down the tail.
 
-    Fresnel is doing the heavy lifting. A flat emission renders as a solid pale
-    blob -- readable, but a sticker. Weighting it toward grazing angles gives
-    the rim-bright, centre-dim falloff that eyes read as a *volume* they are
-    seeing into, which is the whole illusion here, and it costs one node.
+    Three things give him volume, and each answers a different question the eye
+    asks about a shape.
+
+    FRESNEL -- "surface, or disc?" Weighting emission toward grazing angles
+    gives the rim-bright, centre-dim falloff of something being seen into. Flat
+    emission renders as a readable but entirely papery blob.
+
+    A KEY DIRECTION -- "which way is it turned?" Fresnel is symmetric about the
+    view axis, so on its own every part of the rim is equally bright and the
+    head reads as a ring rather than a dome. Weighting by the surface normal
+    against a fixed direction gives him a lit side and a shadow side. Of the
+    three this is the one that does the most for the least.
+
+    TWO-SIDED TRANSPARENCY -- "how thick is it?" With backfaces culled, every
+    pixel of him was exactly one layer of ghost thick, and no amount of shading
+    fixes that, because the information is not in the render to begin with.
+    Blended and unculled, the far wall of his body shows faintly through the
+    near wall: the hem crosses in front of his own tail, the inside of the dome
+    sits behind his face, and the places where he folds over himself are
+    genuinely brighter. That is thickness measured rather than painted, and it
+    is the only one of the three that survives him turning around.
+
+    The reason backfaces were culled in the first place is still real, and BACK
+    is what handles it instead: the body is an open tube, so at the hem we look
+    straight up the inside, which is all grazing angles, so fresnel lit it and
+    the tail rendered as the brightest part of him -- precisely backwards for
+    something dissolving into a wall. Dimming backfaces to a fifth fixes that at
+    the source rather than throwing away the depth cue along with it.
     """
     mat = bpy.data.materials.new("ghost")
     mat.use_nodes = True
@@ -325,39 +365,92 @@ def ghost_material():
     nmix.inputs["To Max"].default_value = 1.18
     nmix.clamp = True
 
+    # The key direction. Dotting the shading normal against a fixed vector is
+    # the whole of it -- there is no lamp in the scene and there cannot be one,
+    # because emission does not receive light.
+    n = math.sqrt(sum(c * c for c in KEY_DIR))
+    dot = nt.nodes.new("ShaderNodeVectorMath")
+    dot.operation = "DOT_PRODUCT"
+    dot.inputs[1].default_value = tuple(c / n for c in KEY_DIR)
+    key = nt.nodes.new("ShaderNodeMapRange")
+    # Not from -1: a full hemisphere of falloff turns his shadow side off
+    # entirely and he reads as a crescent. Compressing the range keeps the whole
+    # silhouette present and only *grades* it.
+    key.inputs["From Min"].default_value = -0.35
+    key.inputs["From Max"].default_value = 0.95
+    key.inputs["To Min"].default_value = KEY_MIN
+    key.inputs["To Max"].default_value = KEY_MAX
+    key.clamp = True
+
+    # Backface dimming, which is what makes two-sided rendering usable here.
+    back = nt.nodes.new("ShaderNodeMapRange")
+    back.inputs["To Min"].default_value = 1.0    # front faces, unchanged
+    back.inputs["To Max"].default_value = BACK   # far wall, seen through him
+    back.clamp = True
+
     m1 = nt.nodes.new("ShaderNodeMath")
     m1.operation = "MULTIPLY"
     m2 = nt.nodes.new("ShaderNodeMath")
     m2.operation = "MULTIPLY"
-    m3 = nt.nodes.new("ShaderNodeMath")
-    m3.operation = "MULTIPLY"
-    m3.inputs[1].default_value = 1.28   # overall brightness
+    m4 = nt.nodes.new("ShaderNodeMath")
+    m4.operation = "MULTIPLY"
+    m5 = nt.nodes.new("ShaderNodeMath")
+    m5.operation = "MULTIPLY"
 
     emit = nt.nodes.new("ShaderNodeEmission")
     # Faintly cold, so he sits apart from the warm burgundy rather than tinting
     # into it. Screen multiplies these against the wall, so the blue only shows
     # where he is bright.
     emit.inputs["Color"].default_value = (0.78, 0.88, 1.0, 1.0)
+    emit.inputs["Strength"].default_value = 1.15   # overall brightness
+
+    # Density doubles as coverage: the one number that says how brightly a patch
+    # of him glows also says how much of what is behind it he hides. That is the
+    # right relationship for a translucent thing and it costs nothing -- his dim
+    # interior is 95% backdrop, his bright rim is nearly opaque.
+    #
+    # It has to arrive as the mix factor and NOT as emission strength. Feed it
+    # to both and the density is squared, which crushes the interior to nothing
+    # and leaves only the rim: a chalk outline of a ghost.
+    alpha = nt.nodes.new("ShaderNodeClamp")
+    clear = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
     out = nt.nodes.new("ShaderNodeOutputMaterial")
 
     nt.links.new(fres.outputs[0], ramp.inputs[0])
     nt.links.new(coord.outputs["Position"], sep.inputs[0])
     nt.links.new(sep.outputs["Z"], fade.inputs[0])
+    nt.links.new(coord.outputs["Normal"], dot.inputs[0])
+    nt.links.new(dot.outputs["Value"], key.inputs[0])
+    nt.links.new(coord.outputs["Backfacing"], back.inputs[0])
     nt.links.new(noise.outputs["Fac"], nmix.inputs[0])
     nt.links.new(ramp.outputs["Color"], m1.inputs[0])
     nt.links.new(fade.outputs[0], m1.inputs[1])
     nt.links.new(m1.outputs[0], m2.inputs[0])
     nt.links.new(nmix.outputs[0], m2.inputs[1])
-    nt.links.new(m2.outputs[0], m3.inputs[0])
-    nt.links.new(m3.outputs[0], emit.inputs["Strength"])
-    nt.links.new(emit.outputs[0], out.inputs["Surface"])
+    nt.links.new(m2.outputs[0], m4.inputs[0])
+    nt.links.new(key.outputs[0], m4.inputs[1])
+    nt.links.new(m4.outputs[0], m5.inputs[0])
+    nt.links.new(back.outputs[0], m5.inputs[1])
+    nt.links.new(m5.outputs[0], alpha.inputs[0])
+    nt.links.new(clear.outputs[0], mix.inputs[1])
+    nt.links.new(emit.outputs[0], mix.inputs[2])
+    nt.links.new(alpha.outputs[0], mix.inputs[0])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
 
-    # The body is an open tube -- the hem has no cap, because a ghost should not
-    # have a floor. Without this we see the *inside* of that tube through the
-    # opening, and the inside is all grazing angles, so fresnel lights it up:
-    # the tail rendered as the brightest part of him, which is precisely
-    # backwards from something dissolving into the wall.
-    mat.use_backface_culling = True
+    # Two-sided and blended. Both halves matter: unculled but opaque, the near
+    # wall simply z-buffers the far one away and nothing changes at all.
+    mat.use_backface_culling = False
+    if hasattr(mat, "surface_render_method"):
+        mat.surface_render_method = "BLENDED"      # EEVEE Next
+    else:
+        mat.blend_method = "BLEND"                 # legacy EEVEE
+    if hasattr(mat, "use_transparency_overlap"):
+        # Off, this keeps only the nearest transparent layer -- which is exactly
+        # the single-layer render we are trying to get away from.
+        mat.use_transparency_overlap = True
+    if hasattr(mat, "show_transparent_back"):
+        mat.show_transparent_back = True
     return mat
 
 
@@ -374,6 +467,15 @@ def dark_material():
 
 
 # ---------------------------------------------------------------- scene setup
+
+# Square, and generous relative to the size he is drawn at, because he is a soft
+# glowing thing with no hard edge anywhere on him -- resampling costs him very
+# little, and the alternative is re-rendering the library every time the page
+# wants him bigger. ORTHO is the world width the frame covers; his silhouette is
+# about 1.1 of the 3.5 units across, so roughly a third of the frame is him.
+RES = 512
+ORTHO = 3.5
+
 
 def setup(res, ortho):
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -580,7 +682,7 @@ def build():
 
 
 def render_clip(name, cfg, out_dir):
-    scene = setup((320, 320), 3.5)
+    scene = setup((RES, RES), ORTHO)
     body, face, arms = build()
     frame_dir = os.path.join(out_dir, "frames", name)
     os.makedirs(frame_dir, exist_ok=True)
