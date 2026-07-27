@@ -154,6 +154,11 @@ const BLOCKED_SPEED = 2.9;
 const BLOCKED_ACCEL = 3.0;
 const BOOST_RATE = 4.0;
 
+/* How long a surface goes on counting as underfoot after he stops touching it.
+ * Long enough to bridge the one-frame gaps of resting exactly on an edge, short
+ * enough that a surface he has genuinely left stops steering him. */
+const SLIP_HOLD = 400;
+
 /* What he cannot pass through: objects, not type.
  *
  * The tomes and the shelf board themselves, not the box around them. It used to
@@ -313,9 +318,13 @@ function errandSpot() {
  * removes a whole class of that.
  */
 function resolve(x, y, r, rects, bounds) {
-  let hitX = false;
-  let hitY = false;
-  let hitBox = null;
+  // Which box stopped him, per axis, rather than one box and two flags. Those
+  // came apart the moment he touched two things at once: the flags accumulated
+  // across every box while the box itself was simply overwritten, so a ghost
+  // wedged where the tomes meet the shelf could have his sideways escape
+  // measured against the ends of the shelf board he was standing on.
+  let hitX = null;
+  let hitY = null;
   for (const box of rects) {
     const l = box.left - PAD - r;
     const t = box.top - PAD - r;
@@ -336,11 +345,10 @@ function resolve(x, y, r, rects, bounds) {
       && o.y >= bounds.minY && o.y <= bounds.maxY) || outs[0];
     x = pick.x;
     y = pick.y;
-    hitX = hitX || pick.hx;
-    hitY = hitY || pick.hy;
-    hitBox = box;
+    if (pick.hx) hitX = box;
+    else hitY = box;
   }
-  return [x, y, hitX, hitY, hitBox];
+  return [x, y, hitX, hitY];
 }
 
 export function startGhost(apparitions) {
@@ -395,6 +403,12 @@ export function startGhost(apparitions) {
     target: null,
     errand: false,        // this target is a book he means to prod
     detoured: false,      // this target is a way round, not a place to be
+    slipX: 0,             // committed slide direction while in contact, per axis
+    slipY: 0,
+    faceX: null,          // the surface blocking him, held briefly past contact
+    faceY: null,
+    faceXAt: -Infinity,
+    faceYAt: -Infinity,
     mode: 'wander',
     restingSince: 0,
     lastMove: 0,
@@ -472,6 +486,10 @@ export function startGhost(apparitions) {
   function pickWander(now) {
     state.errand = false;
     state.detoured = false;
+    // A new destination is a new reason to be against this wall, so the slide
+    // he committed to for the old one should not outlive it.
+    state.slipX = 0;
+    state.slipY = 0;
     if (Math.random() < ERRAND_CHANCE) {
       const spot = errandSpot();
       if (spot) {
@@ -619,9 +637,8 @@ export function startGhost(apparitions) {
     state.y = clamp(state.y, bounds.minY, bounds.maxY);
     let hitX;
     let hitY;
-    let hitBox;
     const rad = half * 0.52;
-    [state.x, state.y, hitX, hitY, hitBox] =
+    [state.x, state.y, hitX, hitY] =
       resolve(state.x, state.y, rad, rects, bounds);
     // Again, after resolving. Clamping only before is what let a collision push
     // him off screen: the push is the last thing to touch his position, so it
@@ -629,50 +646,114 @@ export function startGhost(apparitions) {
     state.x = clamp(state.x, bounds.minX, bounds.maxX);
     state.y = clamp(state.y, bounds.minY, bounds.maxY);
 
-    /* Getting round it, rather than merely not going through it.
+    /* The window edge is a surface too, and it was the only one that did not
+     * say so. The clamp above pins his position and then says nothing, so his
+     * velocity into the glass was never cancelled and the patience timer below
+     * never started: pressed into the side of the window he would stay there,
+     * still accelerating, with nothing in the code aware that anything was
+     * wrong. Only the outward component goes -- he is still free to travel
+     * along an edge, which he does constantly. */
+    const edgeX = (state.x <= bounds.minX && state.vx < 0)
+      || (state.x >= bounds.maxX && state.vx > 0);
+    const edgeY = (state.y <= bounds.minY && state.vy < 0)
+      || (state.y >= bounds.maxY && state.vy > 0);
+    if (edgeX) state.vx = 0;
+    if (edgeY) state.vy = 0;
+
+    /* GETTING ROUND IT, RATHER THAN MERELY NOT GOING THROUGH IT.
      *
      * Sliding only works when the steering already has a component along the
      * surface. Aim him at something directly behind the shelf and it has none:
-     * every frame steers straight into the face, the normal component is zeroed,
-     * and he sits at a dead stop against the edge. Speed cannot fix that -- zero
-     * times anything is zero -- which is why boosting alone left him pinned.
+     * every frame steers straight into the face, the normal component is
+     * zeroed, and he sits at a dead stop. Speed cannot fix that -- zero times
+     * anything is zero. So in contact he is also pushed *along* the surface,
+     * which turns a dead stop into a scoot round the corner with nothing
+     * resembling a pathfinder.
      *
-     * So when he is in contact, he is also pushed *along* the surface, toward
-     * whichever end of that obstacle is the shorter way round. That is enough to
-     * turn a dead stop into a scoot along the edge and round the corner, without
-     * anything resembling a pathfinder.
+     * Getting that push to survive is four separate things, and missing any one
+     * of them put him back to vibrating in place:
+     *
+     * ORDER. Kill the component into each surface first, then push along it.
+     * The other way round -- which is how it was -- made escape from a corner
+     * unreachable by construction: touching in x and y at once, the x-surface's
+     * push went into vy and the y-surface's zeroing wiped it on the same frame,
+     * and vice versa. Both escapes cancelled each other on exactly the frames
+     * he needed them.
+     *
+     * MEMORY. Contact is held briefly past its end. Resting exactly ON a
+     * surface he is inside it one frame and outside it the next, and every
+     * flicker reset the decision below.
+     *
+     * COMMITMENT. The direction is chosen once and then held. Recomputed each
+     * frame it hunts: he slides until level with the target, at which point the
+     * "toward the target" term falls below noise, the fallback sends him back
+     * the way he came, which restores a target direction pointing the other
+     * way, forever. A held choice is a slide, and surfaces have ends, so a
+     * slide terminates.
+     *
+     * OUT BEATS TOWARD. In a corner, "toward the target" is not merely
+     * unhelpful but precisely wrong -- with the target diagonally behind the
+     * corner, both slides point into it. Whichever side of a box he is on, away
+     * from it is the way out of it.
+     *
+     * Measured with the cursor parked on the books and him in the notch where
+     * they meet the shelf board: he used to sit at a single pixel indefinitely,
+     * oscillating four tenths of a pixel. He now never holds still for so much
+     * as half a second.
      */
-    if (hitBox) {
-      const esc = SPEED * BLOCKED_SPEED;
-      /* Which way along the surface. Toward where he is trying to go if that
-       * is a meaningful direction, and only otherwise toward the nearer corner.
-       *
-       * Nearer-corner alone was the original rule and it looks right until the
-       * page has more than one obstacle in it. Opening up the space above the
-       * shelf gave him a pocket beside the books, and in there the rule was a
-       * loop: he wants somewhere below, presses the left face of the tomes,
-       * gets sent to the *nearer* end -- which is the top, back the way he came
-       * -- drifts down again, presses again. He spent minutes rising and
-       * falling in an 85px-wide strip. Sliding toward the target instead takes
-       * him down the face to the shelf board, and the board's own push then
-       * runs him out to its end, which is the way round.
-       */
-      const along = (delta, nearer) => (Math.abs(delta) > PROGRESS_EPS
-        ? Math.sign(delta) : nearer);
-      if (hitX) {
-        const up = state.y - (hitBox.top - PAD - rad);
-        const down = (hitBox.bottom + PAD + rad) - state.y;
-        const dir = along(state.target ? state.target.y - state.y : 0,
+    const awayY = (box) => (state.y < (box.top + box.bottom) / 2 ? -1 : 1);
+    const awayX = (box) => (state.x < (box.left + box.right) / 2 ? -1 : 1);
+
+    /* Only the component INTO the surface goes.
+     *
+     * Zeroing the whole axis is what a wall does to a thing that has hit it,
+     * and it is wrong for a thing that is resting against one: touching the
+     * underside of the shelf board, every frame cancelled his vertical velocity
+     * in both directions, so the one move that would free him -- going down,
+     * away from it -- was the move he could never make. He slid the full length
+     * of the shelf with his back to it and no way off. */
+    if (hitX && state.vx * awayX(hitX) < 0) state.vx = 0;
+    if (hitY && state.vy * awayY(hitY) < 0) state.vy = 0;
+
+    const esc = SPEED * BLOCKED_SPEED;
+    if (hitX) { state.faceX = hitX; state.faceXAt = now; }
+    else if (now - state.faceXAt > SLIP_HOLD) { state.faceX = null; state.slipY = 0; }
+    if (hitY) { state.faceY = hitY; state.faceYAt = now; }
+    else if (now - state.faceYAt > SLIP_HOLD) { state.faceY = null; state.slipX = 0; }
+
+    const along = (delta, nearer) => (Math.abs(delta) > PROGRESS_EPS
+      ? Math.sign(delta) : nearer);
+
+    if (state.faceX) {
+      // Re-decided rather than latched when cornered, because he can arrive at
+      // a corner along a face he was already committed to sliding down.
+      if (state.faceY) state.slipY = awayY(state.faceY);
+      else if (!state.slipY) {
+        const up = state.y - (state.faceX.top - PAD - rad);
+        const down = (state.faceX.bottom + PAD + rad) - state.y;
+        state.slipY = along(state.target ? state.target.y - state.y : 0,
           up < down ? -1 : 1);
-        state.vy += (dir * esc - state.vy) * BLOCKED_ACCEL * dt;
       }
-      if (hitY) {
-        const left = state.x - (hitBox.left - PAD - rad);
-        const right = (hitBox.right + PAD + rad) - state.x;
-        const dir = along(state.target ? state.target.x - state.x : 0,
+      // Nor into the window, which is a surface he cannot slide off the end of.
+      if (state.slipY < 0 && state.y <= bounds.minY + 1) state.slipY = 1;
+      if (state.slipY > 0 && state.y >= bounds.maxY - 1) state.slipY = -1;
+      // Remembered contact decides the DIRECTION; only real contact pushes.
+      // Shoving him for a further 400ms after he is genuinely clear fights the
+      // steering that is trying to take him somewhere, and he ends up
+      // circulating in whatever pocket he escaped into.
+      if (hitX) state.vy += (state.slipY * esc - state.vy) * BLOCKED_ACCEL * dt;
+    }
+    if (state.faceY) {
+      if (state.faceX) state.slipX = awayX(state.faceX);
+      else if (!state.slipX) {
+        const left = state.x - (state.faceY.left - PAD - rad);
+        const right = (state.faceY.right + PAD + rad) - state.x;
+        state.slipX = along(state.target ? state.target.x - state.x : 0,
           left < right ? -1 : 1);
-        state.vx += (dir * esc - state.vx) * BLOCKED_ACCEL * dt;
       }
+      if (state.slipX < 0 && state.x <= bounds.minX + 1) state.slipX = 1;
+      if (state.slipX > 0 && state.x >= bounds.maxX - 1) state.slipX = -1;
+      if (hitY) state.vx += (state.slipX * esc - state.vx) * BLOCKED_ACCEL * dt;
     }
 
     /* Blocked. He has no pathfinding, and the shelf is a 990px-wide box across
@@ -687,9 +768,7 @@ export function startGhost(apparitions) {
      * than pathfinding and better in character: a curious thing that cannot
      * reach what it wanted loses interest in it.
      */
-    if (hitX) state.vx = 0;
-    if (hitY) state.vy = 0;
-    if (hitX || hitY) {
+    if (hitX || hitY || edgeX || edgeY) {
       if (!state.blockedSince) {
         state.blockedSince = now;
         state.bestDist = Infinity;
@@ -722,7 +801,8 @@ export function startGhost(apparitions) {
          */
         state.blockedSince = 0;
         state.mode = 'wander';
-        const via = state.detoured ? null : detourPast(hitBox, rad);
+        const blocker = hitX || hitY;
+        const via = (state.detoured || !blocker) ? null : detourPast(blocker, rad);
         if (via) {
           state.detoured = true;
           state.errand = false;
