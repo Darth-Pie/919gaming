@@ -409,6 +409,7 @@ export function startGhost(apparitions) {
     faceY: null,
     faceXAt: -Infinity,
     faceYAt: -Infinity,
+    gaveUpOnPointer: false,   // tried this resting cursor, could not reach it
     mode: 'wander',
     restingSince: 0,
     lastMove: 0,
@@ -438,6 +439,7 @@ export function startGhost(apparitions) {
   window.addEventListener('pointermove', (e) => {
     state.pointer = { x: e.clientX, y: e.clientY };
     state.lastMove = performance.now();
+    state.gaveUpOnPointer = false;
   }, { passive: true });
   window.addEventListener('pointerleave', () => { state.pointer = null; });
 
@@ -559,7 +561,23 @@ export function startGhost(apparitions) {
         state.vx -= Math.sign(spook.cx - state.x) * 40;
         play('startled', clipMs('startled'));
       } else {
-        const resting = state.pointer && now - state.lastMove > DWELL_MS;
+        /* ...unless he has already tried this cursor and failed to reach it.
+         *
+         * Chase re-aims at the pointer every single frame, which quietly made
+         * the give-up below unreachable while a cursor was resting: the moment
+         * it chose a way round, the next frame overwrote that target with the
+         * pointer again. With the cursor parked somewhere he cannot get to --
+         * on the books, say -- he had no escape mechanism at all and just
+         * worked at the obstacle indefinitely. That is the case the wiggle was
+         * usually reported in, because it is the case a person creates by
+         * putting the mouse down and watching him.
+         *
+         * Cleared when the pointer next moves, which is both the obvious
+         * implementation and the right behaviour: he gave up on where it was,
+         * not on cursors.
+         */
+        const resting = state.pointer && !state.gaveUpOnPointer
+          && now - state.lastMove > DWELL_MS;
         if (resting && state.mode !== 'chase') {
           state.mode = 'chase';
           state.restingSince = now;
@@ -801,6 +819,9 @@ export function startGhost(apparitions) {
          */
         state.blockedSince = 0;
         state.mode = 'wander';
+        // Whatever he was heading for is off the list, and if that was the
+        // cursor it stays off until it moves -- see `resting` above.
+        state.gaveUpOnPointer = true;
         const blocker = hitX || hitY;
         const via = (state.detoured || !blocker) ? null : detourPast(blocker, rad);
         if (via) {
