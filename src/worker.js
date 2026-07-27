@@ -103,6 +103,121 @@ const CSP = [
   "form-action 'self'"
 ].join('; ');
 
+/* Range requests for the clip library.
+ *
+ * Cloudflare's static-asset serving neither advertises Accept-Ranges nor
+ * honours Range: ask for the first hundred bytes of a 41KB clip and you get
+ * 200 and all 41KB of it. Nothing on the page seeks today, so nothing is
+ * visibly broken -- the risk is iOS Safari, which has historically treated a
+ * source it cannot seek as a source it need not play, and the ghost and the
+ * wall apparitions are both nothing but video.
+ *
+ * Buffering an asset whole in order to slice it is only defensible because
+ * these are small by construction; the largest clip in the library is about
+ * 105KB. RANGE_MAX_BYTES is the guard on that assumption rather than a tuned
+ * number -- past it the original response is handed back untouched and claims
+ * nothing about ranges, which is exactly the behaviour we have today.
+ */
+const RANGE_MAX_BYTES = 8 * 1024 * 1024;
+
+// One range only. A multi-range request is a legal thing to ask for and a
+// multipart/byteranges body is a disproportionate thing to build for a mascot,
+// so those fall through to the full 200 the spec allows us to send instead.
+function parseRange(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header || '').trim());
+  if (!m) return null;
+  const [, rawStart, rawEnd] = m;
+  if (rawStart === '' && rawEnd === '') return null;
+  let start;
+  let end;
+  if (rawStart === '') {
+    const n = Number(rawEnd);          // bytes=-N, meaning the last N bytes
+    if (!n) return 'unsatisfiable';
+    start = Math.max(0, size - n);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === '' ? size - 1 : Math.min(Number(rawEnd), size - 1);
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end)
+      || start > end || start >= size) {
+    return 'unsatisfiable';
+  }
+  return { start, end };
+}
+
+// Read at most `cap` bytes, then give up. Deliberately not driven off
+// Content-Length: the assets binding is not obliged to send one, and a missing
+// header should mean "do not risk it", not "assume it is small".
+async function readCapped(body, cap) {
+  const reader = body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > cap) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return out;
+}
+
+async function withRange(request, response) {
+  const type = response.headers.get('content-type') || '';
+  if (response.status !== 200 || !/^video\//i.test(type)) return response;
+
+  if (request.method === 'HEAD') {
+    // Header-only: there is no body to measure, so say ranges are available
+    // and leave the assets binding's own Content-Length describing the whole.
+    const headers = new Headers(response.headers);
+    headers.set('Accept-Ranges', 'bytes');
+    return new Response(null, { status: 200, headers });
+  }
+  if (request.method !== 'GET' || !response.body) return response;
+
+  // Read a copy, so an asset over the cap can still be returned untouched.
+  const body = await readCapped(response.clone().body, RANGE_MAX_BYTES);
+  if (!body) return response;
+  const size = body.byteLength;
+
+  const headers = new Headers(response.headers);
+  headers.set('Accept-Ranges', 'bytes');
+  // readCapped hands back decoded bytes, so any encoding the asset arrived
+  // under no longer describes what we are about to send.
+  headers.delete('Content-Encoding');
+  headers.set('Content-Length', String(size));
+
+  const etag = response.headers.get('ETag');
+  const ifRange = request.headers.get('If-Range');
+  // A client holding a range from a previous deploy must be given the whole
+  // of the new file, not a slice of it spliced onto what it already has.
+  const changed = ifRange && etag && ifRange !== etag;
+  const range = changed ? null : parseRange(request.headers.get('Range'), size);
+
+  if (!range) return new Response(body, { status: 200, headers });
+
+  if (range === 'unsatisfiable') {
+    headers.set('Content-Range', `bytes */${size}`);
+    headers.delete('Content-Length');
+    return new Response(null, { status: 416, headers });
+  }
+
+  const slice = body.slice(range.start, range.end + 1);
+  headers.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+  headers.set('Content-Length', String(slice.byteLength));
+  return new Response(slice, { status: 206, headers });
+}
+
 function withSecurityHeaders(response) {
   const headers = new Headers(response.headers);
   headers.set('X-Content-Type-Options', 'nosniff');
@@ -487,7 +602,7 @@ async function handleRequest(request, env, ctx) {
     return Response.redirect(url.origin + ADMIN_PATH + '/keepers', 302);
   }
 
-  return env.ASSETS.fetch(request);
+  return withRange(request, await env.ASSETS.fetch(request));
 }
 
 export default {
