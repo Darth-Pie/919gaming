@@ -1,11 +1,32 @@
 import { pageClassName, pageVarsStyle, headerStyleObj, bodyTextStyleObj } from '../lib/pageStyle.js';
 import { LinkIcon } from '../lib/icons.jsx';
+import SigilCanvas from './SigilCanvas.jsx';
 
 export default function RightPage({ book: b }) {
   const hs = headerStyleObj(b);
   const bts = bodyTextStyleObj(b);
   const className = pageClassName('right', b);
   const style = pageVarsStyle(b);
+
+  // 'sigil': scattered sparks assemble into the book's own logo mark (see
+  // SigilCanvas). Used for the mustr tome instead of a static wax seal.
+  if (b.kind === 'sigil') {
+    return (
+      <div className={className} style={style}>
+        <p className="chapter-label" style={hs}>{b.pageLabel || 'The Gathering'}</p>
+        <h3 className="chapter-title sm" style={hs}>{b.pageTitle || 'The Muster Assembles'}</h3>
+        <SigilCanvas
+          mark={b.sigilMark}
+          alt={b.title}
+          caption={b.sigilCaption || ''}
+          ctaText={b.ctaText || 'Enter'}
+          url={b.url}
+          host={b.host}
+          config={b.sigilConfig}
+        />
+      </div>
+    );
+  }
 
   if (b.kind === 'journal') {
     return (

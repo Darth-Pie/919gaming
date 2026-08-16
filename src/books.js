@@ -22,6 +22,26 @@ export const books = [
     ]
   },
   {
+    kind: 'sigil',
+    label: 'Community Platform · Self-Hosted',
+    title: 'mustr',
+    cover: 'radial-gradient(ellipse at 30% 20%, #5a3da0, #2c1c5e 55%, #140d2a 100%)',
+    spine: { texture: 'arcane', grad: 'linear-gradient(90deg,#3a2668 0%,#1e1440 42%,#3a2668 88%,#140d2a 100%)',
+             band: '#160f2e', glow: 'rgba(150,110,240,0.32)', title: '#d9c8ff',
+             emblem: 'ring', mark: 'M', accent: '#8b5cf6', height: 322 },
+    flavor: 'Every fellowship needs a ledger — a place the muster is called and kept. Rosters and ranks, events and campaigns, medals earned and deeds recorded: mustr is the book that remembers who answered the call, and runs the realm around them.',
+    pageTexture: 'arcane',
+    pageLabel: 'The Gathering',
+    pageTitle: 'The Muster Assembles',
+    // Right page: scattered sparks assemble into the real mustr mark (see SigilCanvas.jsx),
+    // then the CTA links out. sigilConfig is optional (Sigil Studio exports its tuning here).
+    sigilMark: 'assets/mustr-mark.png',
+    sigilCaption: 'Every realm, one mark.',
+    ctaText: 'Muster your realm',
+    url: 'https://mustr.gg/',
+    host: 'mustr.gg'
+  },
+  {
     kind: 'project',
     label: 'Call of Cthulhu · 1921',
     title: 'The Blooming',
@@ -100,21 +120,27 @@ export const books = [
 ];
 /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
    'whaler' (dark cloth weave, matte, muted), 'nebula' (starfield flecks, for space/sci-fi tomes),
-   'hazard' (diagonal amber warning stripes, for gritty/industrial/prison tomes).
+   'hazard' (diagonal amber warning stripes, for gritty/industrial/prison tomes),
+   'arcane' (amethyst gilt frame + corner jewel, for the mustr flagship / enchanted tomes).
    New tomes can reuse one of these, or a new .tex-<name> preset can be added alongside them in index.html.
    Available emblems: 'ring' (monogram), 'orchid', 'whale' — or add a new case to <Emblem/> in icons.jsx.
    spine.seal: set to an image path (e.g. 'assets/fleet919.webp') to use that image as the spine's
    bottom emblem instead of <Emblem/> — used for a wax seal or a community's own logo alike.
    kind: 'journal' (your links list), 'project' (description + "Break the Seal to Enter" wax-seal
-   CTA — used for community sites that don't need a distinct badge), or 'link' (description + the
+   CTA — used for community sites that don't need a distinct badge), 'link' (description + the
    book's own spine.seal image rendered as a clickable badge — used for linking straight to an
-   existing external site/brand, e.g. Fleet 919). Add a new kind by branching in RightPage.jsx.
+   existing external site/brand, e.g. Fleet 919), or 'sigil' (an animated constellation that
+   assembles into the book's own logo mark before the CTA — see SigilCanvas.jsx; the mustr tome
+   uses it with sigilMark/sigilCaption/ctaText, and an optional sigilConfig for tuning). Add a new
+   kind by branching in RightPage.jsx.
 
    Per-book page styling (all optional, sensible defaults if unset):
      pageTexture: 'aged' -> applies a stained/foxed, dark parchment background (see .tex-page-aged)
                   instead of the default clean parchment. 'digital' -> a dark HUD/tablet screen
                   (scanlines + grid + glowing amber headers, see .tex-page-digital) for tomes that
-                  shouldn't look like paper at all. Add a new .tex-page-<name> preset for more.
+                  shouldn't look like paper at all. 'arcane' -> enchanted violet vellum with
+                  lavender-gold runic headers (see .tex-page-arcane). Add a new .tex-page-<name>
+                  preset for more.
      headerColor: color for chapter-label/chapter-title (existing).
      bodyColor:   color for flavor/desc/links text — sets the --ink CSS var in scope, so it flows
                   through to anything using var(--ink) without touching font-family.
