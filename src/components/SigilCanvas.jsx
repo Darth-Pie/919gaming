@@ -38,6 +38,7 @@ export default function SigilCanvas({ mark, alt = 'mustr', caption, ctaText, url
     const glintsG = root.querySelector('.sigil-glints');
     const halo = root.querySelector('.sigil-halo');
     const markEl = root.querySelector('.sigil-mark');
+    const stageEl = root.querySelector('.sigil-stage');
     const cap = root.querySelector('.sigil-caption');
     const cta = root.querySelector('.sigil-cta');
 
@@ -89,7 +90,17 @@ export default function SigilCanvas({ mark, alt = 'mustr', caption, ctaText, url
       linksG.style.transition = `opacity ${0.8 * s}s ease`; linksG.style.opacity = String(c.skeletonAfter);
       nodesG.style.transition = `opacity ${0.8 * s}s ease`; nodesG.style.opacity = '0';
       halo.style.transition = `opacity ${1.1 * s}s ease`; halo.style.opacity = String(Math.min(1, c.halo));
-      markEl.style.transition = `opacity ${0.9 * s}s ease, transform ${0.9 * s}s cubic-bezier(.2,.9,.3,1.1)`;
+      if (c.bloom === 'snap') {
+        markEl.style.transition = `opacity ${0.28 * s}s ease, transform ${0.34 * s}s cubic-bezier(.2,1.4,.3,1)`;
+      } else if (c.bloom === 'flash') {
+        markEl.style.transition = `opacity ${0.18 * s}s ease, transform ${0.5 * s}s ease`;
+        const fl = document.createElement('div');
+        fl.style.cssText = `position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:0;transition:opacity ${0.12 * s}s ease;background:radial-gradient(circle at 50% 45%,rgba(230,215,255,.9),transparent 55%);`;
+        stageEl.appendChild(fl);
+        requestAnimationFrame(() => { fl.style.opacity = '1'; T(() => { fl.style.opacity = '0'; T(() => fl.remove(), 400 * s); }, 120 * s); });
+      } else {
+        markEl.style.transition = `opacity ${0.9 * s}s ease, transform ${0.9 * s}s cubic-bezier(.2,.9,.3,1.1)`;
+      }
       markEl.style.opacity = '1'; markEl.style.transform = 'scale(1)';
       for (let g = 0; g < c.glints; g++) {
         const p = GLINT_PTS[g % GLINT_PTS.length]; const idx = g;

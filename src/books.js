@@ -31,13 +31,14 @@ export const books = [
              emblem: 'ring', mark: 'M', accent: '#8b5cf6', height: 322 },
     flavor: 'Every fellowship needs a ledger — a place the muster is called and kept. Rosters and ranks, events and campaigns, medals earned and deeds recorded: mustr is the book that remembers who answered the call, and runs the realm around them.',
     pageTexture: 'arcane',
-    pageLabel: 'The Gathering',
-    pageTitle: 'The Muster Assembles',
+    pageLabel: 'Gather your crew',
+    pageTitle: 'mustr',
     // Right page: scattered sparks assemble into the real mustr mark (see SigilCanvas.jsx),
-    // then the CTA links out. sigilConfig is optional (Sigil Studio exports its tuning here).
+    // then the CTA links out. sigilConfig is the Sigil Studio's exported tuning.
     sigilMark: 'assets/mustr-mark.png',
-    sigilCaption: 'Every realm, one mark.',
-    ctaText: 'Muster your realm',
+    sigilCaption: 'A community, summoned.',
+    ctaText: 'Muster your crew',
+    sigilConfig: { speed: 1.6, bloom: 'flash', thickness: 3.4, skeletonAfter: 0, glints: 1, sparks: 11, nodeScale: 0.9, halo: 0.8 },
     url: 'https://mustr.gg/',
     host: 'mustr.gg'
   },
