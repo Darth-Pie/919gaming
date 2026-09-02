@@ -98,25 +98,33 @@ export const books = [
     host: 'f919.org'
   },
   {
+    // Was the Hard Times tome. Hard Times is one campaign inside A.N.C.H.O.R.
+    // now rather than a site of its own, so the shelf carries the library
+    // instead of a single book out of it. hardtimes.919gaming.com still
+    // serves that campaign's front page and is linked from inside.
     kind: 'project',
-    label: 'Dark Matter · The Margin Sector',
-    title: 'Hard Times',
-    cover: 'radial-gradient(ellipse at 30% 20%, #2a2f3a, #15181f 55%, #05060a 100%)',
-    spine: { texture: 'hazard', grad: 'linear-gradient(90deg,#2a2f3a 0%,#15181f 42%,#2a2f3a 88%,#0d0f14 100%)',
-             band: '#15181f', glow: 'rgba(255,176,32,0.3)', title: '#d9a45c',
-             emblem: 'ring', mark: '⚠', accent: '#ffb020', height: 312 },
+    // Short on purpose: every other tome's label sits on one line, and this
+    // one wrapped.
+    label: 'The Campaign Archive',
+    title: 'A.N.C.H.O.R.',
+    // The archive's own palette: teal chrome over near-black, with the amber
+    // mark as its seal -- which is exactly how the site itself reads.
+    cover: 'radial-gradient(ellipse at 30% 20%, #10323a, #0a1b21 55%, #03080b 100%)',
+    spine: { texture: 'nebula', grad: 'linear-gradient(90deg,#12343c 0%,#081c22 42%,#12343c 88%,#03080b 100%)',
+             band: '#081c22', glow: 'rgba(57,212,200,0.32)', title: '#9fe8e0',
+             emblem: 'ring', mark: 'A', accent: '#39d4c8', height: 312 },
     sealShape: 'badge',
-    sealImage: 'assets/hardtimes-logo.webp',
-    flavor: 'Ten years of civil war have hollowed out an empire, and out on the Margin, six prisoners share a cell block on an asteroid that isn\'t supposed to exist. Guards rotate out. None rotate back.',
+    sealImage: 'assets/anchor-mark.webp',
+    flavor: 'Every person met, every room entered, every debt still owed — logged, cross-referenced, and kept. The table forgets by the following Tuesday. The archive does not.',
     pageTexture: 'digital',
     titleFont: "'Big Shoulders Stencil', sans-serif",
     bodyFont: "'Share Tech Mono', monospace",
-    pageLabel: 'The Case File',
-    pageTitle: 'Six Prisoners, One Rock',
-    ctaText: 'Enter the Black Site',
-    description: 'A Dark Matter tabletop campaign set in the lawless Margin sector — equal parts Traveller-inspired frontier and black-site mystery. Follow the briefing, the case files, and the latest word from The Rock.',
-    url: 'https://hardtimes.919gaming.com/',
-    host: 'hardtimes.919gaming.com'
+    pageLabel: 'Archive Online',
+    pageTitle: 'Every Campaign on File',
+    ctaText: 'Open the Archive',
+    description: 'A.N.C.H.O.R. — Automated Network for Cosmic History & Organized Research — is the archive behind the table. Crew, personnel, locations, ships, factions and the loose ends nobody has tied off yet, written up session by session and linked to each other. Hard Times, a Dark Matter campaign out on the Margin, is the first campaign on file.',
+    url: 'https://anchor.919gaming.com/',
+    host: 'anchor.919gaming.com'
   }
 ];
 /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
