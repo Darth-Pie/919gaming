@@ -108,13 +108,14 @@ export const books = [
     label: 'The Campaign Archive',
     title: 'A.N.C.H.O.R.',
     // The archive's own palette: teal chrome over near-black, with the amber
-    // mark as its seal -- which is exactly how the site itself reads.
+    // compass dial as its seal -- which is exactly how the site itself reads.
+    // That dial is A.N.C.H.O.R.'s own mark; it is also the site favicon.
     cover: 'radial-gradient(ellipse at 30% 20%, #10323a, #0a1b21 55%, #03080b 100%)',
     spine: { texture: 'nebula', grad: 'linear-gradient(90deg,#12343c 0%,#081c22 42%,#12343c 88%,#03080b 100%)',
              band: '#081c22', glow: 'rgba(57,212,200,0.32)', title: '#9fe8e0',
              emblem: 'ring', mark: 'A', accent: '#39d4c8', height: 312 },
     sealShape: 'badge',
-    sealImage: 'assets/anchor-mark.webp',
+    sealImage: 'assets/anchor-compass.webp',
     flavor: 'Every person met, every room entered, every debt still owed — logged, cross-referenced, and kept. The table forgets by the following Tuesday. The archive does not.',
     pageTexture: 'digital',
     titleFont: "'Big Shoulders Stencil', sans-serif",
