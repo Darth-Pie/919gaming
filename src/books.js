@@ -126,6 +126,30 @@ export const books = [
     description: 'A.N.C.H.O.R. — Automated Network for Cosmic History & Organized Research — is the archive behind the table. Crew, personnel, locations, ships, factions and the loose ends nobody has tied off yet, written up session by session and linked to each other. Hard Times, a Dark Matter campaign out on the Margin, is the first campaign on file.',
     url: 'https://anchor.919gaming.com/',
     host: 'anchor.919gaming.com'
+  },
+  {
+    // A standalone, playable horror page: an interactive case file about a closed observatory.
+    // It lives on its own subdomain; this tome is how people are pointed to it.
+    kind: 'project',
+    label: 'Interactive Horror · 2026',
+    title: 'Case File 1031',
+    // Storm slate, like the case file's own pages, with the rust of its struck-through explanations.
+    cover: 'radial-gradient(ellipse at 30% 20%, #2c3d4b, #151f29 55%, #070b10 100%)',
+    spine: { texture: 'whaler', grad: 'linear-gradient(90deg,#223140 0%,#0f1820 42%,#223140 88%,#070b10 100%)',
+             band: '#0f1820', glow: 'rgba(181,82,59,0.34)', title: '#d4dde2',
+             emblem: 'ring', mark: '5', accent: '#b5523b', height: 314 },
+    flavor: 'Four investigators collected the evidence. You are the analyst who reviews it, alone. Every natural explanation gets tested, one by one, and every test costs you some of the proof. Feelings are logged, not weighed.',
+    leftImage: 'assets/casefile1031.webp',
+    pageTexture: 'aged',
+    headerColor: '#8f3b28',
+    titleFont: "'Big Shoulders Stencil', sans-serif",
+    bodyFont: "'Share Tech Mono', monospace",
+    pageLabel: 'The Fifth Investigator',
+    pageTitle: 'Open the Case File',
+    ctaText: 'Open the Case File',
+    description: 'A playable paranormal case file. Test the evidence from a closed observatory, watch its integrity drain, and watch the figure on Camera D come closer. About twenty minutes, five endings, best in the dark. The page will freeze, reload and change behind your back. Your device is fine.',
+    url: 'https://casefile1031.919gaming.com/',
+    host: 'casefile1031.919gaming.com'
   }
 ];
 /* Available spine textures: 'leather' (dark, matte, grained), 'victorian' (gilt frame + gloss),
