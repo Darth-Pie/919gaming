@@ -27,6 +27,7 @@ export const books = [
   },
   {
     kind: 'sigil',
+    slug: 'mustr',
     label: 'Community Platform · Self-Hosted',
     title: 'mustr',
     cover: 'radial-gradient(ellipse at 30% 20%, #5a3da0, #2c1c5e 55%, #140d2a 100%)',
@@ -62,6 +63,18 @@ export const books = [
     // the invitation line from the book's jacket, under the tagline on the left page
     quote: '“You are cordially summoned to witness a wonder that graces this world but once in fifteen years.”',
     gallery: ['assets/blooming-cover.webp', 'assets/blooming-plate-06.webp', 'assets/blooming-plate-07.webp', 'assets/blooming-plate-13.webp'],
+    // one description per picture above, in the same order (read by the generated tome page)
+    galleryAlts: [
+      'The front cover of The Blooming, A Horror One-Shot, by Jason Churchill: a slipper orchid with a dark, glossy pouch on black.',
+      'Dunwich at dusk: sagging houses, a covered bridge over a river and a dark wooded hill with a lit house on its crest.',
+      'The open door of a pale stone house at night: lamplight spills down the steps and a man in a dark suit stands in the hall.',
+      'A pale mansion standing alone on cracked, bare ground under a sky full of stars, with a gravel track leading to it and snowy mountains beyond.'
+    ],
+    // the share card for the page's address (1200 x 630, on the Bloom site)
+    seo: {
+      image: 'https://thebloom.919gaming.com/assets/share.jpg',
+      imageAlt: 'The Blooming, A Horror One-Shot, by Jason Churchill: a slipper orchid on a black cover.'
+    },
     pageTexture: 'aged',
     pageLabel: 'The Book',
     pageTitle: 'Get the Book',
@@ -85,12 +98,14 @@ export const books = [
     kind: 'project',
     label: 'Pantheon: Rise of the Fallen',
     title: 'Squall Riders',
+    slug: 'squall-riders',
     cover: 'radial-gradient(ellipse at 30% 20%, #31465a, #1a2836 55%, #0c1520 100%)',
     spine: { texture: 'whaler', grad: 'linear-gradient(90deg,#26374a 0%,#141f2c 42%,#20303f 88%,#0a121c 100%)',
              band: '#0a121c', glow: 'rgba(120,150,180,0.22)', title: '#a8bccc',
              emblem: 'whale', accent: '#8fa8bd', height: 316 },
     flavor: 'A storm gathers on the horizon of a fallen world, and riders are answering its call. The muster has only just begun.',
     leftImage: 'assets/frigate.webp',
+    leftImageAlt: 'A blue-grey silhouette of a sailing ship with full sails and a pennant at the masthead.',
     sealShape: 'badge',
     sealImage: 'assets/wave.webp',
     headerColor: '#1c3f5c',
@@ -107,6 +122,7 @@ export const books = [
     kind: 'link',
     label: 'Fleet 919',
     title: 'Fleet 919',
+    slug: 'fleet-919',
     cover: 'radial-gradient(ellipse at 30% 20%, #2a3568, #141a38 55%, #05060f 100%)',
     spine: { texture: 'nebula', grad: 'linear-gradient(90deg,#1c2340 0%,#0e1226 42%,#1c2340 88%,#080a16 100%)',
              band: '#0e1226', glow: 'rgba(212,175,87,0.3)', title: '#e3cf94',
@@ -130,6 +146,7 @@ export const books = [
     // one wrapped.
     label: 'The Campaign Archive',
     title: 'A.N.C.H.O.R.',
+    slug: 'anchor',
     // The archive's own palette: teal chrome over near-black, with the amber
     // compass dial as its seal -- which is exactly how the site itself reads.
     // That dial is A.N.C.H.O.R.'s own mark; it is also the site favicon.
@@ -156,6 +173,7 @@ export const books = [
     kind: 'project',
     label: 'Interactive Horror · 2026',
     title: 'Case File 1031',
+    slug: 'case-file-1031',
     // Storm slate, like the case file's own pages, with the rust of its struck-through explanations.
     cover: 'radial-gradient(ellipse at 30% 20%, #2c3d4b, #151f29 55%, #070b10 100%)',
     spine: { texture: 'whaler', grad: 'linear-gradient(90deg,#223140 0%,#0f1820 42%,#223140 88%,#070b10 100%)',
@@ -163,6 +181,7 @@ export const books = [
              emblem: 'ring', mark: '5', accent: '#b5523b', height: 314 },
     flavor: 'Four investigators collected the evidence. You are the analyst who reviews it, alone. Every natural explanation gets tested, one by one, and every test costs you some of the proof. Feelings are logged, not weighed.',
     leftImage: 'assets/casefile1031.webp',
+    leftImageAlt: 'A small brick observatory with a silver dome beside a wet country road at night, under storm clouds and lightning, with a street lamp lit nearby.',
     pageTexture: 'aged',
     headerColor: '#8f3b28',
     titleFont: "'Big Shoulders Stencil', sans-serif",
