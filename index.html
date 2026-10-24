@@ -165,9 +165,13 @@
   /* the line under the prompt that opens the newest tome (919gaming.com/#the-blooming); a gilt link like the top bar's */
   .new-on-shelf{ margin:-6px 0 18px; text-align:center; font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.12em;
     text-shadow:0 2px 4px rgba(0,0,0,0.8); animation:fadeUp 0.8s ease 0.3s both; }
-  .new-on-shelf a{ display:inline-block; padding:13px 8px; color:var(--gold-bright); opacity:0.85;
+  .new-on-shelf a{ display:inline-flex; align-items:center; justify-content:center; gap:12px; padding:13px 8px; color:var(--gold-bright); opacity:0.85;
     text-decoration:underline; text-underline-offset:0.35em; text-decoration-color:rgba(201,169,106,0.45); transition:opacity 0.2s ease, color 0.2s ease; }
   .new-on-shelf a:hover, .new-on-shelf a:focus-visible{ opacity:1; color:#fff; }
+  /* the book's seal, the one the tome uses to link to its site, either side of the line; decorative, the line is the link */
+  .shelf-seal{ width:32px; height:32px; flex-shrink:0; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.6); transition:transform 0.25s ease; }
+  .new-on-shelf a:hover .shelf-seal, .new-on-shelf a:focus-visible .shelf-seal{ transform:rotate(-8deg) scale(1.08); }
+  @media (max-width:480px){ .shelf-seal{ width:26px; height:26px; } .new-on-shelf a{ gap:9px; } }
 
   /* ---- shelf ---- */
   .shelf-wrap{ width:100%; position:relative; animation:fadeUp 0.9s ease 0.25s both; }
@@ -592,7 +596,7 @@
     </div>
 
     <p class="prompt">Draw a tome from the shelf</p>
-    <p class="new-on-shelf"><a href="#the-blooming">New on the shelf: The Blooming, a horror one-shot, now in print.</a></p>
+    <p class="new-on-shelf"><a href="#the-blooming"><img class="shelf-seal" src="/assets/blooming-seal.webp" alt="" width="32" height="32">New on the shelf: The Blooming, a horror one-shot, now in print.<img class="shelf-seal" src="/assets/blooming-seal.webp" alt="" width="32" height="32"></a></p>
 
     <div class="shelf-wrap">
       <div id="shelf-root"></div>
