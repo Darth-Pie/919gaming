@@ -62,12 +62,40 @@ export default function RightPage({ book: b }) {
     );
   }
 
+  // 'book': a printed book. Its description, one row to buy each format (b.buy, built by lib/buy.js), then the book's own
+  // seal, smaller, to its site.
+  if (b.kind === 'book') {
+    const size = b.sealSize || 120;
+    return (
+      <div className={className} style={style}>
+        <p className="chapter-label" style={hs}>{b.pageLabel || 'The Book'}</p>
+        <h3 className="chapter-title sm" style={hs}>{b.pageTitle || 'Get the Book'}</h3>
+        <p className="desc" style={bts}>{b.description}</p>
+        <div className="links">
+          {b.buy.map((row) => (
+            <a key={row.url} href={row.url} target="_blank" rel="noopener">
+              <span>{row.label}</span>
+              <span className="arrow">&rarr;</span>
+            </a>
+          ))}
+        </div>
+        <div className="seal-wrap">
+          <a className="seal" style={{ width: size + 'px', height: size + 'px' }} href={b.url} target="_blank" rel="noopener" aria-label={'Enter ' + b.title}>
+            <img src={b.sealImage} width={size} height={size} alt="seal" />
+          </a>
+          <p className="seal-label">{b.ctaText || 'Break the Seal to Enter'}</p>
+          <p className="seal-host">{b.host}</p>
+        </div>
+      </div>
+    );
+  }
+
   // 'project': description + an "enter" seal. No custom sealImage + no badge override
   // means the tome gets the shared tintable wax seal (colored per-book via spine.accent)
-  // instead of a generic photo.
+  // instead of a generic photo. A badge shape sets its own sealImage.
   const sealSize = b.sealSize || 200;
   const useTintedWax = !b.sealImage && b.sealShape !== 'badge';
-  const sealImg = b.sealImage || 'assets/sandstone.webp';
+  const sealImg = b.sealImage;
 
   return (
     <div className={className} style={style}>

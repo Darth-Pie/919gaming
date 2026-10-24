@@ -1,9 +1,13 @@
 /* =========================================================================
    ADD A PROJECT: append an object to this array. That's the only edit needed.
      kind:        'project'  -> shows a description + "Enter" wax seal
+                  'book'     -> a printed book: a description, buy rows (see lib/buy.js) and its own seal to the site;
+                                 give it a `slug` and 919gaming.com/#<slug> opens it
                   'journal'  -> shows your links list (your personal area)
      spine:       leather gradient + accent colour + emblem for the shelf
    ========================================================================= */
+import { buyRows } from './lib/buy.js';
+
 export const books = [
   {
     kind: 'journal',
@@ -43,18 +47,31 @@ export const books = [
     host: 'mustr.gg'
   },
   {
-    kind: 'project',
-    label: 'Call of Cthulhu · 1921',
+    // The printed book, in its own colours: black and gilt with the orchid's burgundy, sampled from the cover. Its words are the
+    // owner's, from the book's jacket and the home page at thebloom.919gaming.com. The buy rows go through that site's /buy/<name>
+    // short links, which redirect to the Lulu pages, so no Lulu address lives here.
+    kind: 'book',
+    slug: 'the-blooming',
+    label: 'A Horror One-Shot',
     title: 'The Blooming',
-    cover: 'radial-gradient(ellipse at 30% 20%, #43512f, #212b1c 55%, #0f150b 100%)',
-    spine: { texture: 'victorian', grad: 'linear-gradient(90deg,#3c2b12 0%,#1c1408 42%,#3c2b12 88%,#130d05 100%)',
-             band: '#1c1408', glow: 'rgba(240,216,150,0.4)', title: '#f5e6b8',
-             emblem: 'orchid', accent: '#f0d896', seal: 'assets/sandstone.webp', height: 308 },
-    flavor: 'Autumn 1921.  Miskatonic University reports unusual activity in nearby Dunwich.  Dare you venture into the hills to investigate the blooming of a rare orchid?',
-    gallery: ['assets/orchidheader.webp', 'assets/zebulon.webp', 'assets/reginald.webp'],
-    sealImage: 'assets/sandstone.webp',
-    sealSize: 160,
-    description: 'A Call of Cthulhu one-shot steeped in H.P. Lovecraft’s cosmic horror. Investigators are drawn to the blooming of an impossibly rare orchid, and to the truth waiting patiently behind it.',
+    cover: 'radial-gradient(ellipse at 30% 20%, #401917, #1f0d0c 55%, #060303 100%)',
+    spine: { texture: 'victorian', grad: 'linear-gradient(90deg,#2a1210 0%,#0c0605 42%,#2a1210 88%,#060303 100%)',
+             band: '#0c0605', glow: 'rgba(111,50,41,0.55)', title: '#bca060',
+             emblem: 'orchid', accent: '#bca060', seal: 'assets/blooming-seal.webp', height: 308 },
+    flavor: 'Four strangers, one flower, and a night that does not end the way any of them was promised.',
+    gallery: ['assets/blooming-cover.webp', 'assets/blooming-plate-06.webp', 'assets/blooming-plate-07.webp', 'assets/blooming-plate-13.webp'],
+    pageTexture: 'aged',
+    pageLabel: 'The Book',
+    pageTitle: 'Get the Book',
+    description: 'For three to five players and a game master, four hours of play, in any horror gaming system you choose.',
+    buy: buyRows('https://thebloom.919gaming.com', [
+      { name: 'paperback', label: 'Paperback' },
+      { name: 'hardcover', label: 'Hardcover' },
+      { name: 'ebook', label: 'eBook' }
+    ]),
+    sealImage: 'assets/blooming-seal.webp',
+    sealSize: 120,
+    ctaText: 'Break the Seal to Enter',
     url: 'https://thebloom.919gaming.com/',
     host: 'thebloom.919gaming.com'
   },
