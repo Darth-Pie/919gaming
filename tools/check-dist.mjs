@@ -1,6 +1,6 @@
 // The check that runs after `vite build` (npm run build): it reads the built dist/ and fails when the crawlable parts are not all there,
 // so a broken generation stops the deploy instead of shipping. Run as a script it checks ./dist against the real books.js.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SITE, pagesFor, titleFor, canonicalFor } from '../src/lib/seo.js';
@@ -34,6 +34,14 @@ export function checkDist(distDir, books) {
   } else {
     if (!home.includes('class="library"')) problems.push('the home page has no library list');
     for (const book of pages) if (!home.includes(`href="/${book.slug}"`)) problems.push(`the home page does not link to /${book.slug}`);
+
+    const canonical = home.match(/<link[^>]*rel="canonical"[^>]*>/)?.[0];
+    if (!canonical?.includes(`href="${SITE}/"`)) problems.push(`the home page has no canonical link to ${SITE}/`);
+
+    const card = home.match(/<meta[^>]*property="og:image"[^>]*>/)?.[0]?.match(/content="([^"]*)"/)?.[1];
+    if (!card) problems.push('the home page has no og:image tag');
+    else if (!card.startsWith(`${SITE}/`)) problems.push(`the home page share image is not on ${SITE}/`);
+    else if (!existsSync(join(distDir, card.slice(SITE.length + 1)))) problems.push(`the share image ${card.slice(SITE.length + 1)} is missing from dist`);
   }
 
   for (const book of pages) {
@@ -65,5 +73,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const problem of problems) console.error(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`dist check: ${pagesFor(books).length} pages, the library list, sitemap.xml and robots.txt are all there`);
+  console.log(`dist check: ${pagesFor(books).length} pages, the library list, the home canonical and share image, sitemap.xml and robots.txt are all there`);
 }
