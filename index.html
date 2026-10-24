@@ -162,6 +162,12 @@
   .prompt{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.22em;
     text-transform:uppercase; color:var(--gold); opacity:0.8; margin:26px 0 18px;
     text-shadow:0 2px 4px rgba(0,0,0,0.8); animation:fadeUp 0.8s ease 0.15s both; }
+  /* the line under the prompt that opens the newest tome (919gaming.com/#the-blooming); a gilt link like the top bar's */
+  .new-on-shelf{ margin:-6px 0 18px; text-align:center; font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.12em;
+    text-shadow:0 2px 4px rgba(0,0,0,0.8); animation:fadeUp 0.8s ease 0.3s both; }
+  .new-on-shelf a{ display:inline-block; padding:13px 8px; color:var(--gold-bright); opacity:0.85;
+    text-decoration:underline; text-underline-offset:0.35em; text-decoration-color:rgba(201,169,106,0.45); transition:opacity 0.2s ease, color 0.2s ease; }
+  .new-on-shelf a:hover, .new-on-shelf a:focus-visible{ opacity:1; color:#fff; }
 
   /* ---- shelf ---- */
   .shelf-wrap{ width:100%; position:relative; animation:fadeUp 0.9s ease 0.25s both; }
@@ -571,7 +577,7 @@
 
   <div class="top-nav">
     <a href="/keepers-secrets"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>Keeper's Secrets</a>
-    <a href="https://thebloom.919gaming.com/keeper.html" id="contentLink" style="display:none"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>The Blooming</a>
+    <a href="https://thebloom.919gaming.com/"><svg viewBox="0 0 60 60" fill="currentColor"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/></svg>The Blooming</a>
   </div>
 
   <div class="stage">
@@ -586,6 +592,7 @@
     </div>
 
     <p class="prompt">Draw a tome from the shelf</p>
+    <p class="new-on-shelf"><a href="#the-blooming">New on the shelf: The Blooming, a horror one-shot, now in print.</a></p>
 
     <div class="shelf-wrap">
       <div id="shelf-root"></div>
@@ -597,11 +604,6 @@
   <div class="footer-note">919gaming.com</div>
 
 <script>
-  /* ---- reveal The Blooming link only when logged in ---- */
-  fetch('/keepers-secrets/status').then(r => r.json()).then(data => {
-    if (data.loggedIn) document.getElementById('contentLink').style.display = '';
-  }).catch(() => {});
-
   /* ---- ambient dust motes ---- */
   const motes = document.getElementById('motes');
   for (let i = 0; i < 20; i++){
