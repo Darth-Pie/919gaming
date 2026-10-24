@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { books } from '../books.js';
-import { SITE, escapeHtml, pagesFor, titleFor, descriptionFor, canonicalFor, imageFor, renderSitemap } from './seo.js';
+import { SITE, escapeHtml, pagesFor, titleFor, descriptionFor, canonicalFor, imageFor, renderSitemap, renderLibraryList, renderTomePage } from './seo.js';
 
 const tome = (over = {}) => ({
   kind: 'project', slug: 'alpha', title: 'Alpha', label: 'The Label',
@@ -125,4 +125,120 @@ test('the six derived titles and descriptions are the ones the owner reviewed', 
   };
   assert.deepEqual(pages.map((b) => b.slug), Object.keys(reviewed));
   for (const b of pages) assert.deepEqual([titleFor(b), descriptionFor(b)], reviewed[b.slug], b.slug);
+});
+
+// ---- the library list and a tome's page ----
+
+const trio = [tome({ slug: 'a', title: 'Alpha', label: 'First' }), tome({ kind: 'journal', slug: 'j', title: 'Journal' }), tome({ slug: 'b', title: 'Beta', label: 'Second' }), tome({ slug: 'c', title: 'Gamma', label: 'Third' })];
+const ldOf = (html) => JSON.parse(html.split('<script type="application/ld+json">')[1].split('</script>')[0]);
+
+test('the library list links every page once with a real anchor, and never the journal', () => {
+  const html = renderLibraryList(trio);
+  for (const [slug, title, label] of [['a', 'Alpha', 'First'], ['b', 'Beta', 'Second'], ['c', 'Gamma', 'Third']]) {
+    assert.equal(html.split(`<a href="/${slug}">${title}</a>`).length - 1, 1, slug);
+    assert.ok(html.includes(label));
+  }
+  assert.ok(!html.includes('Journal') && !html.includes('href="/j"'));
+});
+
+test('the library list is a named nav with an h2', () => {
+  const html = renderLibraryList(trio);
+  assert.ok(html.startsWith('<nav class="library" aria-label="The library">'));
+  assert.ok(html.includes('<h2'));
+  assert.ok(html.includes('<ul>') && html.trim().endsWith('</nav>'));
+});
+
+test('a page has the title, description and canonical link', () => {
+  const html = renderTomePage(trio[0], { books: trio });
+  assert.ok(html.startsWith('<!doctype html>'));
+  assert.ok(html.includes('<html lang="en">'));
+  assert.ok(html.includes(`<title>${escapeHtml(titleFor(trio[0]))}</title>`));
+  assert.ok(html.includes(`<meta name="description" content="${escapeHtml(descriptionFor(trio[0]))}">`));
+  assert.ok(html.includes('<link rel="canonical" href="https://919gaming.com/a">'));
+  assert.ok(html.includes('<link rel="stylesheet" href="/assets/tome-page.css">'));
+});
+
+test('a page has Open Graph and Twitter tags, a small card for the logo and a large one for a set image', () => {
+  const plain = renderTomePage(trio[0], { books: trio });
+  for (const tag of ['og:title', 'og:description', 'og:url', 'og:image', 'og:site_name', 'twitter:title', 'twitter:description', 'twitter:image']) assert.ok(plain.includes(`"${tag}"`), tag);
+  assert.ok(plain.includes('<meta name="twitter:card" content="summary">'));
+  assert.ok(plain.includes('<meta property="og:image" content="https://919gaming.com/assets/919gaming.png">'));
+  const withImage = renderTomePage(tome({ seo: { image: 'https://x.example/card.jpg', imageAlt: 'A card' } }), { books: trio });
+  assert.ok(withImage.includes('<meta name="twitter:card" content="summary_large_image">'));
+  assert.ok(withImage.includes('<meta property="og:image" content="https://x.example/card.jpg">'));
+  assert.ok(withImage.includes('<meta property="og:image:alt" content="A card">'));
+});
+
+test('the h1 is the title, and the body holds the flavour, the quote and each description paragraph', () => {
+  const html = renderTomePage(tome({ title: 'Alpha', flavor: 'The flavour.', quote: '“A quote.”', description: ['Para one.', 'Para two.'] }), { books: trio });
+  assert.ok(html.includes('<h1>Alpha</h1>'));
+  // in their own elements: the same words are also in the description tag, so a bare includes() would not show them missing from the body
+  for (const markup of ['<p class="flavor">The flavour.</p>', '<p class="quote">“A quote.”</p>', '<p class="about">Para one.</p>', '<p class="about">Para two.</p>']) assert.ok(html.includes(markup), markup);
+});
+
+test('a page shows its pictures with their alt text, lazy-loaded', () => {
+  const gallery = renderTomePage(tome({ gallery: ['assets/x.webp', 'assets/y.webp'], galleryAlts: ['An X.', 'A Y.'] }), { books: trio });
+  assert.ok(gallery.includes('<img src="/assets/x.webp" alt="An X." loading="lazy">'));
+  assert.ok(gallery.includes('<img src="/assets/y.webp" alt="A Y." loading="lazy">'));
+  const left = renderTomePage(tome({ leftImage: 'assets/z.webp', leftImageAlt: 'A Z.' }), { books: trio });
+  assert.ok(left.includes('<img src="/assets/z.webp" alt="A Z." loading="lazy">'));
+});
+
+test("a page lists a book's buy rows as links", () => {
+  const html = renderTomePage(tome({ buy: [{ label: 'Paperback', url: 'https://thebloom.919gaming.com/buy/paperback' }, { label: 'eBook', url: 'https://thebloom.919gaming.com/buy/ebook' }] }), { books: trio });
+  assert.ok(html.includes('<a href="https://thebloom.919gaming.com/buy/paperback">Paperback</a>'));
+  assert.ok(html.includes('<a href="https://thebloom.919gaming.com/buy/ebook">eBook</a>'));
+});
+
+test("a page links to the project's own address, to /#slug and to the other pages, but not to itself", () => {
+  const html = renderTomePage(trio[0], { books: trio });
+  assert.ok(html.includes('href="https://alpha.example/"'));
+  assert.ok(html.includes('href="/#a"'));
+  assert.ok(html.includes('href="/b"') && html.includes('href="/c"') && html.includes('href="/"'));
+  assert.ok(!html.includes('href="/a"') && !html.includes('href="/j"'));
+});
+
+test('a page escapes a title, label, flavour and address with markup in them, everywhere they appear', () => {
+  const evil = tome({ title: 'A&B <i>"x"</i>', label: 'L&"M"', flavor: '<script>alert(1)</script> &', description: 'D & "E".', url: 'https://e.example/?a=1&b=2' });
+  const html = renderTomePage(evil, { books: [evil] });
+  assert.ok(!html.includes('<i>"x"</i>') && !html.includes('<script>alert') && !html.includes('?a=1&b=2'));
+  assert.ok(html.includes('A&amp;B &lt;i&gt;&quot;x&quot;&lt;/i&gt;'));
+  assert.ok(html.includes('?a=1&amp;b=2'));
+  const ld = html.split('<script type="application/ld+json">')[1].split('</script>')[0];
+  assert.ok(!ld.includes('<'), 'JSON-LD cannot close its own script');
+  assert.equal(JSON.parse(ld).itemListElement[1].name, 'A&B <i>"x"</i>');
+});
+
+test('the JSON-LD parses and holds a BreadcrumbList with two items', () => {
+  const ld = ldOf(renderTomePage(trio[0], { books: trio }));
+  assert.equal(ld['@context'], 'https://schema.org');
+  assert.equal(ld['@type'], 'BreadcrumbList');
+  assert.deepEqual(ld.itemListElement.map((i) => [i.position, i.name, i.item]), [[1, '919 Gaming', 'https://919gaming.com/'], [2, 'Alpha', 'https://919gaming.com/a']]);
+});
+
+test('a book with only a slug, title, label, address and host renders a complete page', () => {
+  const bare = { kind: 'project', slug: 'bare', title: 'Bare', label: 'Label', url: 'https://bare.example/', host: 'bare.example' };
+  const html = renderTomePage(bare, { books: [bare] });
+  assert.ok(html.includes('<h1>Bare</h1>') && html.includes('<link rel="canonical" href="https://919gaming.com/bare">'));
+  assert.ok(!html.includes('undefined') && !html.includes('null'));
+  assert.ok(!html.includes('<p class="flavor"></p>') && !html.includes('<ul class="buy">') && !html.includes('<figure'));
+  assert.ok(!html.includes('name="description"'), 'no empty description tag');
+  for (const tag of ['main', 'header', 'nav', 'head', 'body', 'html']) {
+    const opened = html.split(`<${tag}>`).length - 1 + html.split(`<${tag} `).length - 1; // `<head` alone would also count <header
+    assert.equal(opened, html.split(`</${tag}>`).length - 1, tag);
+  }
+});
+
+test('a page has no executable script, only the JSON-LD data block', () => {
+  const html = renderTomePage(trio[0], { books: trio });
+  assert.equal(html.split('<script').length - 1, 1);
+  assert.ok(html.includes('<script type="application/ld+json">'));
+});
+
+test('every real page renders with its canonical link and a description tag', () => {
+  for (const b of pagesFor(books)) {
+    const html = renderTomePage(b, { books });
+    assert.ok(html.includes(`<link rel="canonical" href="${canonicalFor(b)}">`), b.slug);
+    assert.ok(html.includes('name="description"'), b.slug);
+  }
 });
