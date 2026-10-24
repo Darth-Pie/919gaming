@@ -614,6 +614,9 @@ async function handleRequest(request, env, ctx) {
 
 export default {
   async fetch(request, env, ctx) {
-    return withSecurityHeaders(await handleRequest(request, env, ctx));
+    const response = withSecurityHeaders(await handleRequest(request, env, ctx));
+    // the sign-in, callback and admin pages are never for a search index (robots.txt also disallows the path)
+    if (new URL(request.url).pathname.startsWith('/keepers-secrets')) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return response;
   }
 };
