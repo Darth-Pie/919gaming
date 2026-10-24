@@ -1,0 +1,58 @@
+/* A tome's page (made at build time by tools/seo-plugin.mjs from src/books.js): the site's dark ground, one parchment sheet and gilt
+   headings. A plain document: nothing here needs a script. */
+:root{ --gold:#c9a96a; --gold-bright:#ecd8a4; --ink:#2b1b06; --ink-soft:#5a3d0c; --wax:#7c1f1f; }
+*{ box-sizing:border-box; }
+html{ background:#0b0709; }
+body.tome-page{ margin:0; min-height:100vh; color:var(--gold-bright); line-height:1.6;
+  font-family:'EB Garamond',Georgia,serif;
+  background:radial-gradient(ellipse at 50% 0%, #2a1217 0%, #0b0709 70%) fixed; }
+
+.tome-top{ display:flex; flex-wrap:wrap; justify-content:center; align-items:baseline; gap:0 14px; padding:14px 16px 0;
+  font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:var(--gold); }
+.tome-top a{ display:inline-block; padding:12px 6px; color:var(--gold-bright); text-decoration:none; }
+.tome-top a:hover, .tome-top a:focus-visible{ text-decoration:underline; text-underline-offset:0.35em; }
+
+.sheet{ max-width:720px; margin:8px auto 32px; padding:clamp(22px,5vw,44px); border-radius:6px; color:var(--ink);
+  background:url(/assets/parchmentclean.webp) center/cover, #d9c9a0;
+  box-shadow:0 20px 50px rgba(0,0,0,0.6), inset 0 0 60px rgba(60,35,10,0.25); }
+.sheet .label{ margin:0 0 6px; font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.24em; text-transform:uppercase; color:var(--ink-soft); }
+.sheet h1{ margin:0 0 18px; font-family:'Cinzel Decorative','Cinzel',serif; font-size:clamp(28px,6vw,42px); line-height:1.15; color:#4a3009; }
+.sheet .flavor{ margin:0 0 14px; font-size:19px; font-weight:600; }
+.sheet .quote{ margin:0 0 20px; font-size:17px; font-style:italic; font-weight:600; color:var(--ink-soft); }
+.sheet .about{ margin:0 0 12px; font-size:17px; }
+
+.pictures{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:0 0 22px; }
+.pictures figure{ margin:0; }
+/* a gallery of several portrait pictures in even 3:4 frames (the cover sits centred on black bars, which this crop trims); a single picture keeps its own shape */
+.pictures:has(figure + figure) img{ aspect-ratio:3/4; object-fit:cover; }
+.pictures img{ display:block; width:100%; height:auto; border:1px solid rgba(43,27,6,0.4); box-shadow:0 4px 10px rgba(0,0,0,0.35); }
+
+.buy{ display:flex; gap:8px; margin:20px 0 0; padding:0; list-style:none; }
+.buy li{ flex:1 1 0; }
+.buy a{ display:flex; align-items:center; justify-content:center; min-height:46px; padding:8px 6px; text-align:center;
+  font-family:'Cinzel',serif; font-size:14px; font-weight:600; letter-spacing:0.05em; color:var(--ink); text-decoration:none;
+  border:1px solid rgba(43,27,6,0.5); border-radius:3px; background:rgba(120,80,20,0.08);
+  transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.buy a:hover, .buy a:focus-visible{ background:rgba(124,31,31,0.14); color:var(--wax); border-color:var(--wax); outline:none; }
+
+.go{ display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 0; }
+.go a{ display:inline-flex; align-items:center; min-height:46px; padding:8px 16px; border-radius:3px;
+  font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.06em; text-decoration:none; transition:background 0.2s ease, color 0.2s ease; }
+.go .visit{ background:var(--wax); color:#f5e6b8; }
+.go .visit:hover, .go .visit:focus-visible{ background:#923030; outline:none; }
+.go .shelf{ color:var(--ink); border:1px solid rgba(43,27,6,0.5); }
+.go .shelf:hover, .go .shelf:focus-visible{ background:rgba(124,31,31,0.14); color:var(--wax); outline:none; }
+
+.more{ max-width:720px; margin:0 auto 40px; padding:0 clamp(22px,5vw,44px); text-align:center; font-family:'Cinzel',serif; }
+.more h2{ margin:0 0 4px; font-size:12px; font-weight:400; letter-spacing:0.24em; text-transform:uppercase; color:var(--gold); }
+.more ul{ display:flex; flex-wrap:wrap; justify-content:center; gap:0 12px; margin:0; padding:0; list-style:none; }
+.more li{ font-size:13px; color:rgba(236,216,164,0.6); }
+.more li span{ font-size:11px; }
+.more a{ display:inline-block; padding:12px 6px; color:var(--gold-bright); text-decoration:underline; text-underline-offset:0.3em;
+  text-decoration-color:rgba(201,169,106,0.45); }
+.more a:hover, .more a:focus-visible{ color:#fff; }
+
+@media (max-width:480px){
+  .buy{ flex-direction:column; }
+  .go a{ flex:1 1 100%; justify-content:center; }
+}

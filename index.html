@@ -172,6 +172,17 @@
   .shelf-seal{ width:32px; height:32px; flex-shrink:0; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.6); transition:transform 0.25s ease; }
   .new-on-shelf a:hover .shelf-seal, .new-on-shelf a:focus-visible .shelf-seal{ transform:rotate(-8deg) scale(1.08); }
   @media (max-width:480px){ .shelf-seal{ width:26px; height:26px; } .new-on-shelf a{ gap:9px; } }
+  /* the list of real links to every tome's page (made at build time from books.js, see tools/seo-plugin.mjs): small, gilt, under the
+     shelf, outside the React root so it is there with scripts off and after they run; the bottom padding clears the fixed footer line */
+  .library{ max-width:900px; margin:34px auto 0; padding:0 12px 64px; text-align:center; }
+  .library-title{ margin:0 0 2px; font-family:'Cinzel',serif; font-size:12px; font-weight:400; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--gold); opacity:0.8; }
+  .library ul{ display:flex; flex-wrap:wrap; justify-content:center; gap:0 14px; margin:0; padding:0; list-style:none; }
+  .library li{ font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.04em; color:rgba(236,216,164,0.55); }
+  .library li span{ font-size:11px; }
+  .library a{ display:inline-block; padding:12px 6px; color:var(--gold-bright); opacity:0.85; text-decoration:underline;
+    text-underline-offset:0.3em; text-decoration-color:rgba(201,169,106,0.45); transition:opacity 0.2s ease, color 0.2s ease; }
+  .library a:hover, .library a:focus-visible{ opacity:1; color:#fff; }
 
   /* ---- shelf ---- */
   .shelf-wrap{ width:100%; position:relative; animation:fadeUp 0.9s ease 0.25s both; }
