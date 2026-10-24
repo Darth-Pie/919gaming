@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /keepers-secrets
+
+Sitemap: https://919gaming.com/sitemap.xml
