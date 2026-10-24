@@ -10,6 +10,7 @@ export default function LeftPage({ book: b, galleryIdx, setGalleryIdx, slotsRef,
       <p className="chapter-label" style={hs}>{b.label}</p>
       <h2 className="chapter-title" style={hs}>{b.title}</h2>
       <p className="flavor" style={bts}>{b.flavor}</p>
+      {b.quote && <p className="quote" style={bts}>{b.quote}</p>}
       {b.leftImage && (
         <div className="log-image"><img src={b.leftImage} alt="" /></div>
       )}

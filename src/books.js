@@ -59,11 +59,17 @@ export const books = [
              band: '#0c0605', glow: 'rgba(111,50,41,0.55)', title: '#bca060',
              emblem: 'orchid', accent: '#bca060', seal: 'assets/blooming-seal.webp', height: 308 },
     flavor: 'Four strangers, one flower, and a night that does not end the way any of them was promised.',
+    // the invitation line from the book's jacket, under the tagline on the left page
+    quote: '“You are cordially summoned to witness a wonder that graces this world but once in fifteen years.”',
     gallery: ['assets/blooming-cover.webp', 'assets/blooming-plate-06.webp', 'assets/blooming-plate-07.webp', 'assets/blooming-plate-13.webp'],
     pageTexture: 'aged',
     pageLabel: 'The Book',
     pageTitle: 'Get the Book',
-    description: 'For three to five players and a game master, four hours of play, in any horror gaming system you choose.',
+    // two paragraphs (the 'book' kind takes a string or a list), both from the book's jacket
+    description: [
+      'For three to five players and a game master, four hours of play, in any horror gaming system you choose.',
+      'Inside are five investigators ready to play, thirteen handouts to pass across the table for shock and awe, four maps of the house and the hill, and notes for running the night in whatever system you know and love.'
+    ],
     buy: buyRows('https://thebloom.919gaming.com', [
       { name: 'paperback', label: 'Paperback' },
       { name: 'hardcover', label: 'Hardcover' },

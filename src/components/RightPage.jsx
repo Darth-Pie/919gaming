@@ -62,21 +62,20 @@ export default function RightPage({ book: b }) {
     );
   }
 
-  // 'book': a printed book. Its description, one row to buy each format (b.buy, built by lib/buy.js), then the book's own
-  // seal, smaller, to its site.
+  // 'book': a printed book. Its description (a string or a list of paragraphs), one button to buy each format in a single row
+  // (b.buy, built by lib/buy.js), then the book's own seal, smaller, to its site.
   if (b.kind === 'book') {
     const size = b.sealSize || 120;
     return (
       <div className={className} style={style}>
         <p className="chapter-label" style={hs}>{b.pageLabel || 'The Book'}</p>
         <h3 className="chapter-title sm" style={hs}>{b.pageTitle || 'Get the Book'}</h3>
-        <p className="desc" style={bts}>{b.description}</p>
-        <div className="links">
+        <div className="book-desc">
+          {[].concat(b.description).map((text) => <p key={text} className="desc" style={bts}>{text}</p>)}
+        </div>
+        <div className="buy-row">
           {b.buy.map((row) => (
-            <a key={row.url} href={row.url} target="_blank" rel="noopener">
-              <span>{row.label}</span>
-              <span className="arrow">&rarr;</span>
-            </a>
+            <a key={row.url} href={row.url} target="_blank" rel="noopener">{row.label}</a>
           ))}
         </div>
         <div className="seal-wrap">

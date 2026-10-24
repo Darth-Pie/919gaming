@@ -345,6 +345,8 @@
     text-shadow:0 1px 0 rgba(255,214,140,0.28); }
   .tex-page-aged .links a{ border-bottom-color:rgba(43,27,6,0.25); }
   .tex-page-aged .links a .arrow{ color:#6b4a12; }
+  .tex-page-aged .quote{ color:#5a3d0c; font-weight:600; text-shadow:0 1px 0 rgba(255,214,140,0.28); }
+  .tex-page-aged .buy-row a{ color:#2b1b06; font-weight:600; border-color:rgba(43,27,6,0.45); text-shadow:0 1px 0 rgba(255,214,140,0.28); }
   /* headings: raised gold-foil effect (gradient fill + hard dark stroke + engraved shadow).
      The stroke is what actually guarantees legibility here — gold-on-tan is same-hue-family,
      so a soft shadow alone washes out over the lighter parts of the background. */
@@ -410,6 +412,7 @@
     margin:0 0 22px; color:var(--wax); line-height:1.05; }
   .chapter-title.sm{ font-size:22px; margin:0 0 16px; }
   .flavor{ line-height:1.7; font-size:17.5px; margin:0; }
+  .quote{ line-height:1.5; font-size:16px; font-style:italic; margin:10px 0 0; color:var(--ink-soft); }
   .desc{ line-height:1.68; font-size:16.5px; margin:0 0 26px; }
 
   /* ---- left-page single illustration (optional, per-book leftImage) ---- */
@@ -512,6 +515,20 @@
   .links a:last-child{ border-bottom:none; }
   .links a:hover{ padding-left:8px; color:var(--wax); }
   .links a .arrow{ color:var(--wax); }
+  /* the 'book' tome: buy buttons in one row (three rows of links would not leave room for its description), and its paragraphs */
+  .book-desc .desc{ font-size:15.5px; line-height:1.55; margin:0 0 9px; }
+  .book-desc{ margin-bottom:14px; }
+  .buy-row{ display:flex; gap:8px; }
+  .buy-row a{ flex:1 1 0; display:flex; align-items:center; justify-content:center; min-height:46px; padding:8px 6px; text-align:center;
+    font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.05em; color:var(--ink); border:1px solid rgba(58,42,26,0.45); border-radius:3px;
+    background:rgba(120,80,20,0.07); transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+  .buy-row a:hover, .buy-row a:focus-visible{ background:rgba(124,31,31,0.12); color:var(--wax); border-color:var(--wax); outline:none; }
+  /* on a phone the right page is a short scrolling panel: the buttons go above the description so buying is in view without a scroll */
+  @media (max-width:640px){
+    .page.right .buy-row{ order:1; margin-bottom:16px; }
+    .page.right .book-desc{ order:2; }
+    .page.right .seal-wrap{ order:3; }
+  }
   .link-icon{ width:14px; height:14px; margin-right:7px; vertical-align:-2px; flex-shrink:0; }
   .link-icon-raven{ width:26px; height:13px; margin-right:6px; vertical-align:-1px; }
 
