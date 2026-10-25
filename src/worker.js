@@ -13,6 +13,8 @@
 // entirely) always has every admin capability. Everyone else's admin
 // access is a single "Trusted" flag God toggles.
 
+import { statusBody } from './lib/status.js';
+
 const SITE_URL = 'https://919gaming.com/';
 const COOKIE_NAME = 'keeper_auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
@@ -422,7 +424,7 @@ async function handleRequest(request, env, ctx) {
 
   if (url.pathname === '/keepers-secrets/status' && request.method === 'GET') {
     const session = await getSession(request, env);
-    return new Response(JSON.stringify({ loggedIn: session.loggedIn }), {
+    return new Response(JSON.stringify(statusBody(session)), {
       headers: { 'content-type': 'application/json', 'cache-control': 'no-store, private' }
     });
   }
