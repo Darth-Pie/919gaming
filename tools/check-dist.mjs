@@ -1,6 +1,6 @@
 // The check that runs after `vite build` (npm run build): it reads the built dist/ and fails when the crawlable parts are not all there,
 // so a broken generation stops the deploy instead of shipping. Run as a script it checks ./dist against the real books.js.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SITE, pagesFor, titleFor, canonicalFor } from '../src/lib/seo.js';
@@ -60,6 +60,21 @@ export function checkDist(distDir, books) {
   const robots = read('robots.txt');
   if (robots === null) problems.push('robots.txt is missing');
   else if (!/^Sitemap:/mi.test(robots)) problems.push('robots.txt has no Sitemap line');
+
+  // The owner's Studio link is added by script, for the owner only (src/lib/studioLink.js). It must never be in the
+  // static output a visitor or a crawler gets: no generated page and not the sitemap may name the studio. (The script
+  // bundle holds the address, so only the pages and the sitemap are checked.)
+  const STUDIO_HOST = 'studio.919gaming.com';
+  let rootFiles = [];
+  try {
+    rootFiles = readdirSync(distDir);
+  } catch {
+    // an unreadable dist is already reported above
+  }
+  for (const name of [...rootFiles.filter((file) => file.endsWith('.html')).sort(), 'sitemap.xml']) {
+    const text = read(name);
+    if (text !== null && text.includes(STUDIO_HOST)) problems.push(`${name} mentions ${STUDIO_HOST}`);
+  }
 
   return problems;
 }

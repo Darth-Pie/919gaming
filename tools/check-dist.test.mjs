@@ -41,6 +41,23 @@ test('passes a complete dist', () => {
   withDist({}, (dir) => assert.deepEqual(checkDist(dir, books), []));
 });
 
+test('reports a home page, a tome page or a sitemap that mentions the studio, and says which', () => {
+  const studio = '<a href="https://studio.919gaming.com/">Studio</a>';
+  withDist({ 'index.html': homePage(renderLibraryList(books) + studio) }, (dir) => {
+    assert.deepEqual(checkDist(dir, books), ['index.html mentions studio.919gaming.com']);
+  });
+  withDist({ 'a.html': renderTomePage(books[0], { books }) + studio }, (dir) => {
+    assert.deepEqual(checkDist(dir, books), ['a.html mentions studio.919gaming.com']);
+  });
+  withDist({ 'sitemap.xml': renderSitemap(books) + '<!-- https://studio.919gaming.com/ -->' }, (dir) => {
+    assert.deepEqual(checkDist(dir, books), ['sitemap.xml mentions studio.919gaming.com']);
+  });
+});
+
+test('allows the studio address in a script bundle: only pages and the sitemap are checked for it', () => {
+  withDist({ 'assets/app.js': 'fetch("https://studio.919gaming.com/")' }, (dir) => assert.deepEqual(checkDist(dir, books), []));
+});
+
 test('reports a missing page file', () => {
   withDist({ 'b.html': null }, (dir) => assert.deepEqual(checkDist(dir, books), ['b.html is missing']));
 });
